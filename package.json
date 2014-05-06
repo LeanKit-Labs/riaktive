@@ -1,0 +1,24 @@
+{
+  "name": "riaktive",
+  "version": "0.0.19",
+  "description": "A very opinionated riak lib for Node things",
+  "main": "src/riaktive.js",
+  "scripts": {
+    "test": "gulp test"
+  },
+  "author": "Alex Robson",
+  "license": "MIT License - http://opensource.org/licenses/MIT",
+  "dependencies": {
+    "configya": "~0.0.1",
+    "lodash": "~2.4.1",
+    "riakpbc": "git://github.com/nlf/riakpbc.git#riak2",
+    "sliver": "~0.0.2",
+    "solr-client": "~0.2.9",
+    "when": "~3.0.0"
+  },
+  "devDependencies": {
+    "should": "~3.2.0-beta1",
+    "gulp-mocha": "~0.4.1",
+    "gulp": "~3.5.6"
+  }
+}
