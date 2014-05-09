@@ -1,7 +1,10 @@
 require( 'should' );
 var config = require( 'configya' )( './config.json' ),
-	riak = require( '../src/riaktive.js' )( config ),
-	_ = require( 'lodash' );
+	riaklib = require( '../src/riaktive.js' ),
+	riak = riaklib( config ),
+	_ = require( 'lodash' ),
+	sinon = require( 'sinon' ),
+	path = require('path');
 
 describe( 'when connecting to riak', function() {
 	before( function( done ) {
@@ -234,3 +237,73 @@ describe( 'when creating a plain bucket', function() {
 	} );
 
 } );
+
+describe( 'schema name and path', function() {
+	describe( 'when connecting without specifying schema name and (or) path', function() {
+
+		var expectedName,
+			expectedPath;
+
+		before( function(done) {
+			expectedName = 'riaktive_schema';
+			expectedPath = path.resolve( path.join( __dirname, '../src/default_solr.xml' ) );
+
+			sinon.spy( riak, 'assertSchema' );
+
+			done();
+		});
+
+		it( 'use the default schema name', function( done ) {
+			riak.connect()
+				.done( function() {
+					riak.assertSchema.getCall( 0 ).args[ 0 ].should.equal( expectedName );
+					done();
+				}.bind( this ));
+		});
+
+		it( 'use the default schema file', function( done ) {
+			riak.connect()
+				.done( function() {
+					riak.assertSchema.getCall( 0 ).args[ 1 ].should.equal( expectedPath );
+					done();
+				}.bind( this ));
+		});
+	})
+
+	describe( 'when connecting with specified schema name and (or) path', function() {
+
+		var expectedName,
+			expectedPath,
+			riak2;
+
+		before( function(done) {
+			expectedName = 'test-schema';
+			expectedPath = path.resolve( path.join( __dirname, './test_solr.xml' ) );
+			config[ 'schemaName' ] = expectedName;
+			config[ 'schemaPath' ] = expectedPath;
+			riak2 = riaklib( config );
+
+			sinon.spy( riak2, 'assertSchema' );
+
+			done();
+		});
+
+		it( 'use the specified schema name', function( done ) {
+			riak2.connect()
+				.done( function() {
+					riak2.assertSchema.getCall( 0 ).args[ 0 ].should.equal( expectedName );
+					done();
+				}.bind( this ));
+		});
+
+		it( 'use the specified schema file', function( done ) {
+			riak2.connect()
+				.done( function() {
+					riak2.assertSchema.getCall( 0 ).args[ 1 ].should.equal( expectedPath );
+					done();
+				}.bind( this ));
+		});
+	});
+
+});
+
