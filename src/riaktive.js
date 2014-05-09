@@ -8,15 +8,15 @@ var riakpbc = require( 'riakpbc' ),
 
 module.exports = function( config, nodeId ) {
 
-	var SchemaName,
-		SchemaPath;
+	var _schemaName,
+		_schemaPath;
 
 	var Riak = function() {
 		this.connected = false;
 
-		SchemaName = config.get( 'schemaName', 'riaktive_schema');
+		_schemaName = config.get( 'schemaName', 'riaktive_schema');
 		var defaultPath = path.resolve( path.join( __dirname, './default_solr.xml' ) );
-		SchemaPath = config.get( 'schemaPath', defaultPath );
+		_schemaPath = config.get( 'schemaPath', defaultPath );
 
 		this.client = riakpbc.createClient( {
 			host: config.get( 'RIAK_SERVER', 'ubuntu' ),
@@ -95,7 +95,7 @@ module.exports = function( config, nodeId ) {
 					} else {
 						when.all( [ 
 							this.idSetup, 
-							this.assertSchema( SchemaName, SchemaPath ) 
+							this.assertSchema( _schemaName, _schemaPath ) 
 						] ).done( function() {
 							this.ready = true;
 							resolve();
@@ -111,7 +111,7 @@ module.exports = function( config, nodeId ) {
 			alias = options.alias;
 		bucketName = bucket.name;
 		var	schemaCheck,
-			defaults = { search_index: bucketName + '_index', schema: SchemaName };
+			defaults = { search_index: bucketName + '_index', schema: _schemaName };
 		options = _.merge( defaults, ( options || {} ) );
 		if( options.alias ) {
 			delete options.alias;
@@ -143,13 +143,13 @@ module.exports = function( config, nodeId ) {
 			if( options.search_index ) {
 				if( schemaCheck ) {
 					schemaCheck.done( function () {
-						this.assertIndex( options.search_index, options.schema || SchemaName )
+						this.assertIndex( options.search_index, options.schema || _schemaName )
 							.done( function() {
 								resolve();
 							} );
 					}.bind( this ) );
 				} else {
-					this.assertIndex( options.search_index, options.schema || SchemaName )
+					this.assertIndex( options.search_index, options.schema || _schemaName )
 						.done( function() {
 							resolve();
 						} );
