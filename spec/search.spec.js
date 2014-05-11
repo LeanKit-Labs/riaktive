@@ -54,8 +54,10 @@ describe( 'with connection to solr and an indexed bucket', function () {
 			}, 2000 );
 		} );
 
-		it( 'should not poo', function() {
+		it( 'should return expected match', function() {
 			list.length.should.equal( 1 );
+			var match = list[ 0 ];
+			match.name.should.equal( 'Ian' );
 		} );
 	} );
 

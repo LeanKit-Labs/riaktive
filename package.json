@@ -1,6 +1,6 @@
 {
   "name": "riaktive",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "description": "A very opinionated riak lib for Node things",
   "main": "src/riaktive.js",
   "scripts": {
