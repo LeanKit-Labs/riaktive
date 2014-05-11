@@ -8,13 +8,22 @@ var riakpbc = require( 'riakpbc' ),
 
 module.exports = function( config, nodeId ) {
 
+	var _schemaName,
+		_schemaPath;
+
 	var Riak = function() {
 		this.connected = false;
+
+		_schemaName = config.get( 'schemaName', 'riaktive_schema');
+		var defaultPath = path.resolve( path.join( __dirname, './default_solr.xml' ) );
+		_schemaPath = config.get( 'schemaPath', defaultPath );
+
 		this.client = riakpbc.createClient( {
 			host: config.get( 'RIAK_SERVER', 'ubuntu' ),
 			port: config.get( 'RIAK_PBC', 8087 ),
 			timeout: 5000
 		} );
+
 		this.idSetup = when.promise( function( resolve, reject, notify ) {
 			var ready = function() {
 				resolve();
@@ -84,10 +93,9 @@ module.exports = function( config, nodeId ) {
 					if( this.ready ) {
 						resolve();
 					} else {
-						var defaultSchema = path.resolve( path.join( __dirname, './default_solr.xml' ) );
 						when.all( [ 
 							this.idSetup, 
-							this.assertSchema( 'riaktive_schema', defaultSchema ) 
+							this.assertSchema( _schemaName, _schemaPath ) 
 						] ).done( function() {
 							this.ready = true;
 							resolve();
@@ -103,7 +111,7 @@ module.exports = function( config, nodeId ) {
 			alias = options.alias;
 		bucketName = bucket.name;
 		var	schemaCheck,
-			defaults = { search_index: bucketName + '_index', schema: 'riaktive_schema' };
+			defaults = { search_index: bucketName + '_index', schema: _schemaName };
 		options = _.merge( defaults, ( options || {} ) );
 		if( options.alias ) {
 			delete options.alias;
@@ -135,13 +143,13 @@ module.exports = function( config, nodeId ) {
 			if( options.search_index ) {
 				if( schemaCheck ) {
 					schemaCheck.done( function () {
-						this.assertIndex( options.search_index, options.schema || 'riaktive_schema' )
+						this.assertIndex( options.search_index, options.schema || _schemaName )
 							.done( function() {
 								resolve();
 							} );
 					}.bind( this ) );
 				} else {
-					this.assertIndex( options.search_index, options.schema || 'riaktive_schema' )
+					this.assertIndex( options.search_index, options.schema || _schemaName )
 						.done( function() {
 							resolve();
 						} );
