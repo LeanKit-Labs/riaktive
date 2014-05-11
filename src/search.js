@@ -1,55 +1,121 @@
 var solrClient = require( 'solr-client' ),
 	when = require( 'when' ),
-	_ = require( 'lodash' );
+	_ = require( 'lodash' ),
+	http = require( 'http' );
 
 module.exports = function( config, riak ) {
 
-	var Index = function( index ) {
-		this.solr = solrClient.createClient( 
-		{
-			host: config.get( 'SOLR_HOST', 'ubuntu' ),
-			port: config.get( 'SOLR_PORT', 8093 ),
-			core: index,
-			path: config.get( 'SOLR_PATH', '/solr' )
+	var queryRequest = function( params, callback ) {
+		var options = {
+			host: params.host,
+			port: params.port,
+			path: params.fullPath
+		};
+
+		if ( params.agent !== undefined ) {
+			options.agent = params.agent;
+		}
+
+		if ( params.authorization ) {
+			var headers = {
+				'authorization': params.authorization
+			};
+			options.headers = headers;
+		}
+
+		var callbackResponse = function( res ) {
+			var buffer = '';
+			var err = null;
+			res.on( 'data', function( chunk ) {
+				buffer += chunk;
+			} );
+
+			res.on( 'end', function() {
+				if ( res.statusCode !== 200 ) {
+					err = new SolrError( res.statusCode, buffer );
+					if ( callback ) callback( err, null );
+				} else {
+					try {
+						var data = JSON.parse( buffer );
+					} catch ( error ) {
+						err = error;
+					} finally {
+						if ( callback ) callback( err, data );
+					}
+				}
+			} );
+		}
+
+		var request = http.get( options, callbackResponse );
+
+		request.on( 'error', function( err ) {
+			if ( callback ) callback( err, null );
 		} );
+	}
+
+	var Index = function( index ) {
+		this.solr = solrClient.createClient( {
+			host: config.get( 'RIAK_SERVER', 'ubuntu' ),
+			port: config.get( 'RIAK_HTTP', 8098 ),
+			core: index,
+			path: '/search'
+		} );
+
+		// this is kinda terrible, but Riak's URL doesn't conform to SOLR's :|
+		// I figure patching vs. rolling our own solr client is the lesser of two evils.
+		this.solr.search = function( query, callback ) {
+			var self = this;
+			// Allow to be more flexible allow query to be a string and not only a Query object
+			var parameters = query.build ? query.build() : query;
+			this.options.fullPath = [ this.options.path, this.options.core, '?' + parameters + '&wt=json' ]
+				.filter( function( element ) {
+					if ( element ) return true;
+					return false;
+				} )
+				.join( '/' );;
+			queryRequest( this.options, callback );
+			return self;
+		}
 	};
 
 	Index.prototype.search = function( body, params ) {
 		return when.promise( function( resolve, reject, notify ) {
-			var query = this.solr.createQuery().q( body );
-			if( params ) {
-				if( params.start ) {
+			var query = this.solr.createQuery().set( 'wt=json' ).q( body );
+			if ( params ) {
+				if ( params.start ) {
 					query = query.start( params.start );
 				}
-				if( params.rows ) {
+				if ( params.rows ) {
 					query = query.rows( params.rows );
 				}
-				if( params.factors ) {
+				if ( params.factors ) {
 					query = query.qf( params.factors );
 				}
-				if( params.minimumMatch ) {
+				if ( params.minimumMatch ) {
 					query = query.mm( params.minimumMatch );
 				}
-				if( !params.strict ) {
+				if ( !params.strict ) {
 					query = query.edismax();
 				}
-				if( params.boost ) {
+				if ( params.boost ) {
 					query = query.boost( params.boost );
 				}
 			}
-			
-			this.solr.search( query, function( err, result ){
-				if( err ) {
+
+			this.solr.search( query, function( err, result ) {
+				if ( err ) {
 					reject( err );
 				} else {
 					var matches = _.map( result.response.docs, function( d ) {
-						return { 
-							id: [ d._yz_rb, d._yz_rk ].join(':'),
+						return {
+							id: [ d._yz_rb, d._yz_rk ].join( ':' ),
 							bucket: d._yz_rb,
 							key: d._yz_rk
 						};
 					} );
-					matches = _.uniq( matches, function( match ) { return match.id } );
+					matches = _.uniq( matches, function( match ) {
+						return match.id
+					} );
 					riak.getByKeys( matches )
 						.then( null, reject )
 						.progress( notify )
@@ -58,6 +124,6 @@ module.exports = function( config, riak ) {
 			}.bind( this ) );
 		}.bind( this ) );
 	};
-	
+
 	return Index;
 };

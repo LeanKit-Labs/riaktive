@@ -7,28 +7,30 @@
 	<field name="text" type="text_general" indexed="true" stored="false" multiValued="true"/>
 	<field name="description" type="text_general" indexed="true" stored="false" multiValued="true"/>
 
-	<dynamicField name="*name" type="text_general" indexed="true" stored="false" multiValued="true"/>
-	<dynamicField name="*id" type="long" indexed="true" stored="false" multiValued="true"/>
+	<dynamicField name="*.name" type="text_general" indexed="true" stored="false" multiValued="true"/>
+	<dynamicField name="*.id" type="long" indexed="true" stored="false" multiValued="true"/>
+	<dynamicField name="*Name" type="text_general" indexed="true" stored="false" multiValued="true"/>
+	<dynamicField name="*Id" type="long" indexed="true" stored="false" multiValued="true"/>
 	<dynamicField name="*ed" type="long" indexed="true" stored="false" multiValued="true"/>
-	<dynamicField name="*on" type="date" indexed="true" stored="false" multiValued="true"/>
-	<dynamicField name="*date" type="date" indexed="true" stored="false" multiValued="true"/>
+	<dynamicField name="*Date" type="date" indexed="true" stored="false" multiValued="true"/>
 	<dynamicField name="*ive" type="boolean" indexed="true" stored="false" multiValued="true"/>
-	<dynamicField name="*total" type="long" indexed="true" stored="false" multiValued="true"/>
+	<dynamicField name="*Total" type="long" indexed="true" stored="false" multiValued="true"/>
 	<dynamicField name="total*" type="long" indexed="true" stored="false" multiValued="true"/>
-	<dynamicField name="*average" type="float" indexed="true" stored="false" multiValued="true"/>
+	<dynamicField name="*Average" type="float" indexed="true" stored="false" multiValued="true"/>
 	<dynamicField name="average*" type="float" indexed="true" stored="false" multiValued="true"/>
 	<dynamicField name="mean*" type="float" indexed="true" stored="false" multiValued="true"/>
-	<dynamicField name="*mean" type="float" indexed="true" stored="false" multiValued="true"/>
-	<dynamicField name="*minimum" type="float" indexed="true" stored="false" multiValued="true"/>
+	<dynamicField name="*Mean" type="float" indexed="true" stored="false" multiValued="true"/>
+	<dynamicField name="*Minimum" type="float" indexed="true" stored="false" multiValued="true"/>
 	<dynamicField name="minimum*" type="float" indexed="true" stored="false" multiValued="true"/>
-	<dynamicField name="*min" type="float" indexed="true" stored="false" multiValued="true"/>
+	<dynamicField name="*Min" type="float" indexed="true" stored="false" multiValued="true"/>
 	<dynamicField name="min*" type="float" indexed="true" stored="false" multiValued="true"/>
 	<dynamicField name="max*" type="float" indexed="true" stored="false" multiValued="true"/>
-	<dynamicField name="*max" type="float" indexed="true" stored="false" multiValued="true"/>
+	<dynamicField name="*Max" type="float" indexed="true" stored="false" multiValued="true"/>
 	<dynamicField name="maximum*" type="float" indexed="true" stored="false" multiValued="true"/>
-	<dynamicField name="*maximum" type="float" indexed="true" stored="false" multiValued="true"/>
+	<dynamicField name="*Maximum" type="float" indexed="true" stored="false" multiValued="true"/>
 	<dynamicField name="rate*" type="float" indexed="true" stored="false" multiValued="true"/>
-	<dynamicField name="*rate" type="float" indexed="true" stored="false" multiValued="true"/>
+	<dynamicField name="*Rate" type="float" indexed="true" stored="false" multiValued="true"/>
+	<dynamicField name="*" type="random" indexed="false" />
 
 	<!-- Needed by Yokozuna -->
 	<field name="_yz_id" type="_yz_str" indexed="true" stored="true" required="true" />
