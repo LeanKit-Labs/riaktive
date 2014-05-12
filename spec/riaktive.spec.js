@@ -150,12 +150,12 @@ describe( 'when creating a plain bucket', function() {
 				} );
 		} );
 
-		it( 'should not cause siblings', function( done ) {
+		it( 'should cause siblings', function( done ) {
 			riak.mahBucket.get( 'update-1' )
 				.then( function( doc ) {
 					result = doc;
-					_.isArray( result ).should.be.false;
-					result.should.eql( next );
+					_.isArray( result ).should.be.true;
+					result[ 1 ].should.eql( next );
 					done();		
 				} );
 		} );

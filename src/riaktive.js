@@ -8,6 +8,17 @@ var riakpbc = require( 'riakpbc' ),
 
 module.exports = function( config, nodeId ) {
 
+	var diff = function( one, two ) {
+		var result = {};
+		_.each( two, function( value, key ) {
+			var orig = one[ key ];
+			if( orig !== value ) {
+				result[ key ] = value;
+			}
+		} );
+		return result;
+	};
+
 	var Riak = function() {
 		this.connected = false;
 		this.client = riakpbc.createClient( {
@@ -103,26 +114,45 @@ module.exports = function( config, nodeId ) {
 			alias = options.alias;
 		bucketName = bucket.name;
 		var	schemaCheck,
-			defaults = { search_index: bucketName + '_index', schema: 'riaktive_schema' };
+			defaults = { search_index: bucketName + '_index', schema: 'riaktive_schema', allow_mult: true };
 		options = _.merge( defaults, ( options || {} ) );
 		if( options.alias ) {
 			delete options.alias;
 		}
-		var create = function( resolve, reject ) {
-			this.client.setBucket(
-				{ bucket: bucketName, props: options }, 
-				function( err, reply ) {
-					if( err ) {
-						reject( err );
-					} else {
-						this[ bucketName ] = bucket;
-						this[ alias ] = bucket;
-						resolve( bucket );
-					}
-				}.bind( this )
-			);
-		}.bind( this );
-
+		var createBucket = function( props, resolve, reject ) {
+				var difference = diff( props, _.omit( options, 'schema' ) );
+				if( _.keys( difference ).length > 0 ) {
+					this.client.setBucket(
+						{ bucket: bucketName, props: difference }, 
+						function( err, reply ) {
+							if( err ) {
+								reject( err );
+							} else {
+								this[ bucketName ] = bucket;
+								this[ alias ] = bucket;
+								resolve( bucket );
+							}
+						}.bind( this )
+					);
+				} else {
+					this[ bucketName ] = bucket;
+					this[ alias ] = bucket;
+					resolve( bucket );
+				}
+			}.bind( this ),
+			checkProps = function( resolve, reject ) {
+				this.client.getBucket( 
+					{ bucket: bucketName },
+					function( err, reply ) {
+						if( err ) {
+							reject();
+						} else {
+							resolve( reply.props );
+						}
+					}.bind( this ) 
+				);
+			}.bind( this );
+ 
 		if( options.schema && options.schemaPath ) {
 			schemaCheck = this.assertSchema( options.schema, options.schemaPath );
 		} else {
@@ -154,7 +184,10 @@ module.exports = function( config, nodeId ) {
 		return when.promise( function( resolve, reject, notify ) {
 			prerequisites
 				.done( function() {
-					create( resolve, reject );		
+					checkProps(
+						function( props ) { createBucket( props, resolve, reject ); }, 
+						function() { createBucket( {}, resolve, reject ); } 
+					);
 				}.bind( this ) );
 		}.bind( this ) );
 	};
