@@ -80,7 +80,9 @@ module.exports = function( config, riak ) {
 
 	Index.prototype.search = function( body, params ) {
 		return when.promise( function( resolve, reject, notify ) {
-			var query = this.solr.createQuery().set( 'wt=json' ).q( body );
+			var query = this.solr.createQuery().set( 'wt=json' ).q( body ),
+				useEdis = false;
+
 			if ( params ) {
 				if ( params.start ) {
 					query = query.start( params.start );
@@ -89,16 +91,19 @@ module.exports = function( config, riak ) {
 					query = query.rows( params.rows );
 				}
 				if ( params.factors ) {
+					useEdis = true;
 					query = query.qf( params.factors );
 				}
 				if ( params.minimumMatch ) {
+					useEdis = true;
 					query = query.mm( params.minimumMatch );
 				}
-				if ( !params.strict ) {
-					query = query.edismax();
-				}
 				if ( params.boost ) {
+					useEdis = true;
 					query = query.boost( params.boost );
+				}
+				if( useEdis ) {
+					query = query.edismax();
 				}
 			}
 
