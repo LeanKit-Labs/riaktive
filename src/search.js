@@ -78,7 +78,7 @@ module.exports = function( config, riak ) {
 		}
 	};
 
-	Index.prototype.search = function( body, params ) {
+	Index.prototype.search = function( body, params, includeStats ) {
 		return when.promise( function( resolve, reject, notify ) {
 			var query = this.solr.createQuery().set( 'wt=json' ).q( body ),
 				useEdis = false;
@@ -124,7 +124,17 @@ module.exports = function( config, riak ) {
 					riak.getByKeys( matches )
 						.then( null, reject )
 						.progress( notify )
-						.done( resolve );
+						.done( function( searchResult ) {
+							var response =  includeStats 
+											? { docs: searchResult, 
+												total:result.response.numFound,
+												start: result.response.start,
+												maxScore: result.response.maxScore,
+												qTime: result.responseHeader.QTime
+												 }
+											: searchResult;
+							resolve( response );
+						});
 				}
 			}.bind( this ) );
 		}.bind( this ) );
