@@ -120,9 +120,7 @@ module.exports = function( config, riak ) {
 							key: d._yz_rk
 						};
 					} );
-					matches = _.uniq( matches, function( match ) {
-						return match.id
-					} );
+
 					riak.getByKeys( matches )
 						.then( null, reject )
 						.progress( notify )
