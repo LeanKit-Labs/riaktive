@@ -1,7 +1,8 @@
 var solrClient = require( 'solr-client' ),
 	when = require( 'when' ),
 	_ = require( 'lodash' ),
-	http = require( 'http' );
+	http = require( 'http' ),
+	SolrError = require('../node_modules/solr-client/lib/error/solr-error.js');
 
 module.exports = function( config, riak ) {
 
@@ -32,6 +33,7 @@ module.exports = function( config, riak ) {
 
 			res.on( 'end', function() {
 				if ( res.statusCode !== 200 ) {
+
 					err = new SolrError( res.statusCode, buffer );
 					if ( callback ) callback( err, null );
 				} else {

@@ -117,4 +117,28 @@ describe( 'with connection to solr and an indexed bucket', function () {
 			bucket.del( 'three' );
 		} );
 	} );
+
+	describe( 'with search query errors', function() {
+		var error;
+		before( function( done ) {
+
+			index.search( { name: 'this has spaces but is not enclosed in quotes' } 	 )
+				 .progress( function( item ) {
+				 	//console.log( item );
+				 } )
+				 .then( null, function( err ) {
+				 	error = err;
+				 	done();
+				 } )
+				 .done( function( res ) {
+				 	if( res ) {
+				 		done();
+				 	}
+				 } );
+		});
+		
+		it( 'should return solrError message', function() {
+			error.name.should.equal( 'SolrError' );
+		});
+	})
 } );
