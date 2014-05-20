@@ -110,10 +110,6 @@ describe( 'with connection to solr and an indexed bucket', function () {
 		it( 'should show query duration', function() {
 			result.qTime.should.be.ok;
 		});
-
-		it( 'should sort correctly', function() {
-
-		});
 	
 		after( function() {
 			bucket.del( 'one' );
@@ -150,10 +146,6 @@ describe( 'with connection to solr and an indexed bucket', function () {
 			var match = result.docs[ 2 ];
 			match.name.should.equal( 'Fred' );
 		} );
-
-		// it( 'should not have a query max score', function() {
-		// 	_.isUndefined( result.maxScore ).should.true;
-		// });
 	
 		after( function() {
 			bucket.del( 'four' );
