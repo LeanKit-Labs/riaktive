@@ -111,10 +111,54 @@ describe( 'with connection to solr and an indexed bucket', function () {
 			result.qTime.should.be.ok;
 		});
 
+		it( 'should sort correctly', function() {
+
+		});
+	
 		after( function() {
 			bucket.del( 'one' );
 			bucket.del( 'two' );
 			bucket.del( 'three' );
+		} );
+	} );
+
+	describe( 'with a sorted query', function() {
+		var result;
+		before( function( done ) {
+			this.timeout( 5000 );
+			bucket.put( { id: 'four', name: 'Fred', age:23 } );
+			bucket.put( { id: 'five', name: 'Sally', age:35  } );
+			bucket.put( { id: 'six', name: 'Becca', age:35 });
+
+			setTimeout( function() {
+				index.search( { 'name': '*' }, { sort: { age:'desc' } }, true )
+					 .progress( function( item ) {
+					 	//console.log( item );
+					 } )
+					 .then( null, function( err ) {
+					 	done();
+					 } )
+					 .done( function( res ) {
+					 	result = res;
+					 	done();
+					 } );
+			}, 2000 );
+		} );
+
+		it( 'should sort correctly', function() {
+			result.docs.length.should.equal( 3 );
+			var match = result.docs[ 2 ];
+			match.name.should.equal( 'Fred' );
+		} );
+
+		// it( 'should not have a query max score', function() {
+		// 	_.isUndefined( result.maxScore ).should.true;
+		// });
+	
+		after( function() {
+			bucket.del( 'four' );
+			bucket.del( 'five' );
+			bucket.del( 'six' );
 		} );
 	} );
 
