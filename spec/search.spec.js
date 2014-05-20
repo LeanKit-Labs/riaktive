@@ -42,7 +42,7 @@ describe( 'with connection to solr and an indexed bucket', function () {
 			setTimeout( function() {
 				index.search( { 'children.name': 'averie' } )
 					 .progress( function( item ) {
-					 	console.log( item );
+					 	//console.log( item );
 					 } )
 					 .then( null, function( err ) {
 					 	done();
@@ -59,11 +59,122 @@ describe( 'with connection to solr and an indexed bucket', function () {
 			var match = list[ 0 ];
 			match.name.should.equal( 'Ian' );
 		} );
+
+		after( function() {
+			bucket.del( 'one' );
+			bucket.del( 'two' );
+		} );
 	} );
 
-	after( function() {
-		bucket.del( 'one' );
-		bucket.del( 'two' );
+	describe( 'with query stats', function() {
+		var result;
+		before( function( done ) {
+			this.timeout( 5000 );
+			bucket.put( { id: 'one', name: 'Alex' } );
+			bucket.put( { id: 'two', name: 'Ian'  } );
+			bucket.put( { id: 'three', name: 'Becca' });
+
+			setTimeout( function() {
+				index.search( { 'name': '*' }, { start:1, rows:2 }, true )
+					 .progress( function( item ) {
+					 	//console.log( item );
+					 } )
+					 .then( null, function( err ) {
+					 	done();
+					 } )
+					 .done( function( res ) {
+					 	result = res;
+					 	done();
+					 } );
+			}, 2000 );
+		} );
+
+		it( 'should return expected results', function() {
+			result.docs.length.should.equal( 2 );
+			var match = result.docs[ 1 ];
+			match.name.should.equal( 'Becca' );
+		} );
+
+		it( 'should show total docs available', function() {
+			result.total.should.equal( 3 );
+		} );
+
+		it( 'should show correct start', function() {
+			result.start.should.equal( 1 );
+		});
+
+		it( 'should show query max score', function() {
+			result.maxScore.should.ok;
+		});
+
+		it( 'should show query duration', function() {
+			result.qTime.should.be.ok;
+		});
+	
+		after( function() {
+			bucket.del( 'one' );
+			bucket.del( 'two' );
+			bucket.del( 'three' );
+		} );
 	} );
 
+	describe( 'with a sorted query', function() {
+		var result;
+		before( function( done ) {
+			this.timeout( 5000 );
+			bucket.put( { id: 'four', name: 'Fred', age:23 } );
+			bucket.put( { id: 'five', name: 'Sally', age:35  } );
+			bucket.put( { id: 'six', name: 'Becca', age:35 });
+
+			setTimeout( function() {
+				index.search( { 'name': '*' }, { sort: { age:'desc' } }, true )
+					 .progress( function( item ) {
+					 	//console.log( item );
+					 } )
+					 .then( null, function( err ) {
+					 	done();
+					 } )
+					 .done( function( res ) {
+					 	result = res;
+					 	done();
+					 } );
+			}, 2000 );
+		} );
+
+		it( 'should sort correctly', function() {
+			result.docs.length.should.equal( 3 );
+			var match = result.docs[ 2 ];
+			match.name.should.equal( 'Fred' );
+		} );
+	
+		after( function() {
+			bucket.del( 'four' );
+			bucket.del( 'five' );
+			bucket.del( 'six' );
+		} );
+	} );
+
+	describe( 'with search query errors', function() {
+		var error;
+		before( function( done ) {
+
+			index.search( { name: 'this has spaces but is not enclosed in quotes' } 	 )
+				 .progress( function( item ) {
+				 	//console.log( item );
+				 } )
+				 .then( null, function( err ) {
+				 	error = err;
+				 	done();
+				 } )
+				 .done( function( res ) {
+				 	if( res ) {
+				 		done();
+				 	}
+				 } );
+		});
+		
+		it( 'should return solrError message', function() {
+			error.name.should.equal( 'SolrError' );
+		});
+	})
 } );
