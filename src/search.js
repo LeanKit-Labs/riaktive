@@ -1,7 +1,8 @@
 var solrClient = require( 'solr-client' ),
 	when = require( 'when' ),
 	_ = require( 'lodash' ),
-	http = require( 'http' );
+	http = require( 'http' ),
+	SolrError = require('../node_modules/solr-client/lib/error/solr-error.js');
 
 module.exports = function( config, riak ) {
 
@@ -32,6 +33,7 @@ module.exports = function( config, riak ) {
 
 			res.on( 'end', function() {
 				if ( res.statusCode !== 200 ) {
+
 					err = new SolrError( res.statusCode, buffer );
 					if ( callback ) callback( err, null );
 				} else {
@@ -73,14 +75,15 @@ module.exports = function( config, riak ) {
 					return false;
 				} )
 				.join( '/' );;
+
 			queryRequest( this.options, callback );
 			return self;
 		}
 	};
 
-	Index.prototype.search = function( body, params ) {
+	Index.prototype.search = function( body, params, includeStats ) {
 		return when.promise( function( resolve, reject, notify ) {
-			var query = this.solr.createQuery().set( 'wt=json' ).q( body ),
+			var query = this.solr.createQuery().set().q( body ),
 				useEdis = false;
 
 			if ( params ) {
@@ -89,6 +92,9 @@ module.exports = function( config, riak ) {
 				}
 				if ( params.rows ) {
 					query = query.rows( params.rows );
+				}
+				if ( params.sort ) {
+					query = query.sort( params.sort );
 				}
 				if ( params.factors ) {
 					useEdis = true;
@@ -118,13 +124,21 @@ module.exports = function( config, riak ) {
 							key: d._yz_rk
 						};
 					} );
-					matches = _.uniq( matches, function( match ) {
-						return match.id
-					} );
+
 					riak.getByKeys( matches )
 						.then( null, reject )
 						.progress( notify )
-						.done( resolve );
+						.done( function( searchResult ) {
+							var response =  includeStats 
+											? { docs: searchResult, 
+												total:result.response.numFound,
+												start: result.response.start,
+												maxScore: result.response.maxScore,
+												qTime: result.responseHeader.QTime
+												 }
+											: searchResult;
+							resolve( response );
+						});
 				}
 			}.bind( this ) );
 		}.bind( this ) );

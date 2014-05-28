@@ -214,7 +214,7 @@ module.exports = function( config, nodeId ) {
 									doc.vclock = reply.vclock;
 									this.parseIndexes( doc, d );
 									return doc;
-								}.bind( this) );
+								}.bind( this ) );
 								notify( docs );
 								resolve( docs );
 							} else if ( reply.content && reply.content.length > 0 ) {
