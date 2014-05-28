@@ -72,7 +72,7 @@ describe( 'with connection to solr and an indexed bucket', function () {
 			this.timeout( 5000 );
 			bucket.put( { id: 'one', name: 'Alex' } );
 			bucket.put( { id: 'two', name: 'Ian'  } );
-			bucket.put( { id: 'three', name: 'Becca' });
+			bucket.put( { id: 'three', name: 'Becca' } );
 
 			setTimeout( function() {
 				index.search( { 'name': '*' }, { start:1, rows:2 }, true )
@@ -124,7 +124,7 @@ describe( 'with connection to solr and an indexed bucket', function () {
 			this.timeout( 5000 );
 			bucket.put( { id: 'four', name: 'Fred', age:23 } );
 			bucket.put( { id: 'five', name: 'Sally', age:35  } );
-			bucket.put( { id: 'six', name: 'Becca', age:35 });
+			bucket.put( { id: 'six', name: 'Becca', age:35 } );
 
 			setTimeout( function() {
 				index.search( { 'name': '*' }, { sort: { age:'desc' } }, true )

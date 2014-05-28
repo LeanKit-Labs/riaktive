@@ -31,7 +31,7 @@
 	<dynamicField name="*Maximum" type="float" indexed="true" stored="false" multiValued="true"/>
 	<dynamicField name="rate*" type="float" indexed="true" stored="false" multiValued="true"/>
 	<dynamicField name="*Rate" type="float" indexed="true" stored="false" multiValued="true"/>
-	<dynamicField name="*" type="random" indexed="false" />
+	<dynamicField name="*" type="ignored" indexed="false" />
 
 	<!-- Needed by Yokozuna -->
 	<field name="_yz_id" type="_yz_str" indexed="true" stored="true" required="true" />
@@ -61,7 +61,7 @@
 	<fieldType name="date" class="solr.TrieDateField" precisionStep="0" positionIncrementGap="0"/>
 	<fieldType name="tdate" class="solr.TrieDateField" precisionStep="6" positionIncrementGap="0"/>
 	<fieldtype name="binary" class="solr.BinaryField"/>
-	<fieldType name="random" class="solr.RandomSortField" indexed="true" />
+	<fieldType name="random" class="solr.RandomSortField"/>
 
 	<!-- A text field that only splits on whitespace for exact matching of words -->
 	<fieldType name="text_ws" class="solr.TextField" positionIncrementGap="100">
