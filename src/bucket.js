@@ -68,7 +68,7 @@ Bucket.prototype.getKeys = function( onKey, done ) {
 	var stream = this.riak.client.getKeys( { bucket: this.name }, function( err, reply ) {
 		done( err, reply );
 	} );
-	if( onKey ) {
+	if( onKey && stream ) {
 		stream.on( 'data', onKey );
 	}
 };
