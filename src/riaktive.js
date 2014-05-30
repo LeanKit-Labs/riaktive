@@ -223,6 +223,8 @@ module.exports = function( config, nodeId ) {
 								this.parseIndexes( doc, reply.content[ 0 ] );
 								notify( doc );
 								resolve( doc );
+							} else {
+								resolve( undefined );
 							}
 						}
 					}.bind( this ) );
