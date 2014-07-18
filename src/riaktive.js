@@ -21,6 +21,7 @@ module.exports = function( config, nodeId ) {
 
 	var Riak = function() {
 		this.connected = false;
+		console.log( 'muhconfig', config );
 		this.client = riakpbc.createClient( {
 			host: config.riak.server || 'ubuntu',
 			port: config.riak.pbc || 8087,

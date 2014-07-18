@@ -1,5 +1,5 @@
 require( 'should' );
-var config = require( 'configya' )( './config.json' ),
+var config = require( 'configya' )( './spec/config.json' ),
 	riak = require( '../src/riaktive.js' )( config ),
 	_ = require( 'lodash' ),
 	when = require( 'when' );
