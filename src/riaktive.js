@@ -22,8 +22,8 @@ module.exports = function( config, nodeId ) {
 	var Riak = function() {
 		this.connected = false;
 		this.client = riakpbc.createClient( {
-			host: config.get( 'RIAK_SERVER', 'ubuntu' ),
-			port: config.get( 'RIAK_PBC', 8087 ),
+			host: config.riak.server || 'ubuntu',
+			port: config.riak.pbc || 8087,
 			timeout: 5000
 		} );
 		this.idSetup = when.promise( function( resolve, reject, notify ) {
