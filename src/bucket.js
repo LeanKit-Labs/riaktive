@@ -1,305 +1,174 @@
-var _ = require( 'lodash' ),
-	when = require( 'when' );
+var	_ = require( 'lodash' );
+var	path = require( 'path' );
+var	when = require( 'when' );
+var	machina = require( 'machina' );
+var	IndexManager = require( './indexes.js' );
+var	SchemaManager = require( './schema.js' );
+var	debug = require( 'debug' )( 'riaktive:bucket' );
+var createBucket = require( './riak' ).createBucket;
+var schemas, index;
 
-var content = function( obj, indexes ) {
-	var tmp = { 'content_type': 'application/json', value: JSON.stringify( obj ) };
-	if( indexes ) {
-		tmp.indexes = indexes;
-	}
-	return tmp;
-};
-
-var Bucket = function( name, riak, options ) {
-	this.name = _.isArray( name ) ? _.filter( name ).join( '_' ) : name;
-	this.riak = riak;
-	this.options = options;
-
-	_.bindAll( this );
-};
-
-Bucket.prototype.get = function( key, single, multiple, error ) {
-	return when.promise( function( resolve, reject ) {
-		this.riak.client.get( {
-			bucket: this.name,
-			key: key
-		}, function( err, reply ) {
-			if( err ) {
-				if( error ) {
-					error( err );
-				}
-				reject( err );
-			} else {
-				if( !reply.content ) {
-					if( single ) {
-						single( undefined );
-					}
-					resolve( undefined );
-				}
-				else if( reply.content.length > 1 ) {
-					var docs = _.map(
-						_.filter( reply.content, function( v ) {
-							return !v.deleted;
-						}
-					), function( doc ) {
-						var result = doc.value;
-						result.vclock = reply.vclock;
-						this.riak.parseIndexes( result, doc );
-						return result;
-					}.bind( this ) );
-					if( multiple ) {
-						multiple( docs, reply.content );
-					}
-					resolve( docs );
-				} else if ( reply.content.length > 0 ) {
-					var doc = reply.content[ 0 ].value;
-					doc.vclock = reply.vclock;
-					this.riak.parseIndexes( doc, reply.content[ 0 ] );
-					if( single ) {
-						single( doc );
-					}
-					resolve( doc );
-				}
-			}
-		}.bind( this ) );
-	}.bind( this ) );
-};
-
-Bucket.prototype.getKeys = function( onKey, done ) {
-	var stream = this.riak.client.getKeys( { bucket: this.name }, function( err, reply ) {
-		done( err, reply );
+function diff( one, two ) {
+	var result = {};
+	_.each( two, function( value, key ) {
+		var orig = one[ key ];
+		if( orig !== value ) {
+			result[ key ] = value;
+		}
 	} );
-	if( onKey && stream ) {
-		stream.on( 'data', onKey );
-	}
-};
+	return result;
+}
 
-Bucket.prototype.getByKeys = function( keys ) {
-	var ids = _.map( keys, function( key ) { return { bucket: this.name, key: key } }.bind( this ) );
-	return this.riak.getByKeys( ids );
-};
-
-Bucket.prototype.getKeysByIndex = function( index, start, finish, limit, continuation ) {
-	if( _.isObject( index ) ) {
-		start = start || index.start;
-		finish = finish || index.finish;
-		limit = limit || index.limit;
-		continuation = continuation || index.continuation;
-		index = index.index;
-	}
-	var originalIndex = index;
-	if( index == '$key' || index == '$bucket' ) {
-		// do nothing
-	}
-	else if( !/[_](bin|int)$/.test( index ) ) {
-		if( _.isNumber( start ) ) {
-			index = index + '_int';
-		} else {
-			index = index + '_bin';
-		}
-	}
-
-	var query = {
-		bucket: this.name,
-		index: index
-	};
-
-	if( finish ) {
-		query.qtype = 1;
-		query.range_min = start;
-		query.range_max = finish;
-	} else {
-		query.qtype = 0;
-		query.key = start;
-	}
-
-	if( limit ) {
-		query.max_results = limit;
-	}
-
-	if( continuation ) {
-		query.continuation = continuation;
-	}
-
-	var newContinuation;
-	return when.promise( function( resolve, reject, notify ) {
-		this.riak.client.getIndex( query )
-			.on( 'data', function( data ) {
-				if( data ) {
-					if( data.continuation ) {
-						newContinuation = data.continuation;
-					} else {
-						notify( data );
-					}
-				}
-			} )
-			.on( 'end', function() {
-				if( newContinuation ) {
-					resolve( 
-						{
-							index: originalIndex,
-							limit: limit,
-							start: start,
-							finish: finish,
-							continuation: newContinuation
-						}
-					);
-				} else {
-					resolve();
-				}
-			} )
-			.on( 'error', reject );
-	}.bind( this ) );
-};
-
-Bucket.prototype.put = function( key, obj, indexes, getBeforePut ) {
-	var vclock,
-		setVclock = function( done ) { 
-			vclock = obj.vclock;
-			delete obj[ 'vclock' ];
-			done();
+function Bucket( bucket, options, riak ) {
+	schemas = schemas || new SchemaManager( riak );
+	index = index || new IndexManager( riak );
+	var bucketName = _.isArray( bucket ) ? _.filter( bucket ).join( '_' ) : bucket;
+	var defaults = { 
+			search_index: bucketName + '_index',
+			schema: 'riaktive_schema',
+			schemaPath: path.resolve( './src', 'default_solr.xml' ),
+			allow_mult: true 
 		};
-	if( !obj || _.isObject( key ) ) {
-		if( indexes ) {
-			getBeforePut = indexes;
-		}
-		if( obj ) {
-			indexes = this.processIndexes( obj );
-		}
-		obj = key;
-		key = obj.id || this.riak.ids.getId();
-	} else if( indexes ) {
-		indexes = this.processIndexes( indexes );
-	}
-	obj.id = obj.id || key;
-	var indices;
-	if( !obj.vclock && getBeforePut ) {
-		setVclock = function( done ) {
-			this.get( { bucket: this.name, key: key }  )
-				.then( function( result ) {
-					if( _.isArray( result ) ) {
-						vclock = result[ 0 ].vclock;
-						if( result[ 0 ]._indices ) {
-							indices = indices || result[ 0 ]._indices;	
-						}
+	var api = createBucket( riak, bucketName );
+	options = _.omit( options, 'alias' );
+	options = _.defaults( options, defaults );
+	var Monad = machina.Fsm.extend( {
+		alias: options.alias || bucketName,
+		name: bucketName,
+		operate: function( call, args ) {
+			var op = { operation: call, argList: args },
+				promise = when.promise( function( resolve, reject, notify ) {
+					op.resolve = resolve;
+					op.reject = reject;
+					op.notify = notify;
+				} );
+			this.handle( 'operate', op );
+			return promise;
+		},
+
+		_assertIndex: function( name, schema ) {
+			index.create( name, schema )
+				.then( function( pause ) {
+					setTimeout( function() {
+						this.handle( 'index.asserted' );
+					}.bind( this ), pause ? 10000 : 0 );
+				}.bind( this ) )
+				.then( null, function( err ) {
+					this.handle( 'index.failed', err );
+				}.bind( this ) );
+		},
+		_assertSchema: function( name, schemaPath ) {
+			schemas.create( name, schemaPath )
+				.then( function() {
+					this.handle( 'schema.asserted' );
+				}.bind( this ) )
+				.then( null, function( err ) {
+					this.handle( 'schema.failed', err );
+				}.bind( this ) );
+		},
+		_create: function() {
+			var self = this;
+			debug( 'Getting bucket props for %s', bucketName );
+			api.readBucket( riak, bucketName )
+				.then( function( props ) {
+					debug( 'Read props %s from bucket %s', JSON.stringify( props ), bucketName );
+					var difference = diff( props, _.omit( options, 'schema', 'schemaPath' ) );
+					if( _.keys( difference ).length > 0 ) {
+						riak.setBucket( { bucket: bucketName, props: difference } )
+							.then( function() {
+								self.handle( 'bucket.asserted' );
+							} )
+							.then( null, function( err ) {
+								self.handle( 'bucket.failed', err );
+							} );
 					} else {
-						vclock = result.vclock;
-						if( result._indices ) {
-							indices = indices || result._indices;
-						}
+						self.handle( 'bucket.asserted' );
 					}
-					done();
 				} )
 				.then( null, function( err ) {
-					done();
+					debug( 'failed to read props for bucket %s with %s', bucketName, err.stack );
 				} );
-			}.bind( this );
-	}
-	return when.promise( function( resolve, reject, notify ) {
-		setVclock( function() {
-			indices = indexes || this.processIndexes( obj._indices );
-			var request = {
-				bucket: this.name,
-				key: key,
-				return_body: true,
-				content: content( obj, indices )
-			};
-			if( vclock ) {
-				request.vclock = vclock;
-			}
-			this.riak.client.put( request, function( err, reply ) {
-				if( err ) {
-					reject( err );
-				} else {
-					obj.id = key;
-					obj.vclock = reply.vclock;
-					resolve( key );
+		},
+		initialState: 'checkingSchema',
+		states: {
+			creating: {
+				_onEnter: function() {
+					this._create();
+				},
+				'bucket.asserted': function() {
+					debug( 'Bucket "%s" created with %s', bucketName, JSON.stringify( options ) );
+					this.transition( 'ready' );
+				},
+				'bucket.failed': function( err ) {
+					debug( 'Bucket create for %s failed with %s', bucketName, err );
+				},
+				operate: function( /* call */ ) {
+					this.deferUntilTransition( 'ready' );
 				}
-			} );
-		}.bind( this ) );
-	}.bind( this ) );
-};
-
-Bucket.prototype.mutate = function( key, mutate ) {
-	var mutator = function( mutandis, resolve, reject ) {
-			try {
-				var vclock = mutandis.vclock,
-					doc = _.isArray( mutandis ) ? mutandis[ 0 ] : mutandis,
-					mutatis = mutate( doc );
-				this.put( key, mutatis )
-					.then( null, function( err ) {
-						reject( {
-							reason: 'Could not apply changes to document with key "' + 
-									key + '" in bucket "' + this.name + '"',
-							error: err 
-						} );
-					}.bind( this ) )
-					.then( function() {
-						resolve( mutatis );
-					}.bind( this ) );
-			} catch ( err ) {
-				reject( {
-					reason: 'Could not apply changes to document with key "' + 
-							key + '" in bucket "' + this.name + '"',
-					error: err 
-				} );
-			}
-		}.bind( this );
-
-	return when.promise( function( resolve, reject ) {
-		this.get( key )
-			.then( function( result ) {
-				if( result ) {
-					mutator( result, resolve, reject );
-				} else {
-					reject( { 
-						reason: 'Could not load document for apply with key "' + 
-								key + '" in bucket "' + this.name + '"'
-						} 
-					);
+			},
+			checkingSchema: {
+				_onEnter: function() {
+					debug( 'Checking for schema', options.schema );
+					if( options.schema && options.schemaPath ) {
+						this._assertSchema( options.schema, options.schemaPath );
+					} else {
+						this.transition( 'checkingIndex' );
+					}
+				},
+				'schema.asserted': function() {
+					debug( 'Schema "%s" asserted', options.schema );
+					this.transition( 'checkingIndex' );
+				},
+				'schema.failed': function( err ) {
+					debug( 'Schema assert for %s failed with %s', options.schema, err.stack );
+				},
+				operate: function( /* call */ ) {
+					this.deferUntilTransition( 'ready' );
 				}
-			}.bind( this ) )
-			.then( null, function( err ) {
-				reject( { 
-					reason: 'Could not load document for apply with key "' + 
-							key + '" in bucket "' + this.name + '"', 
-					error: err } 
-				);
-			}.bind( this ) );
-		}.bind( this ) );
-};
-
-Bucket.prototype.processIndexes = function( list ) {
-	return _.map( list, function( val, key ) {
-		if( /[_](bin|int)$/.test( key ) ) {
-			return { key: key, value: val };
-		}
-		else if( _.isNumber( val ) ) {
-			return { key: key + '_int', value: val };
-		} else {
-			return { key: key + '_bin', value: val };
+			},
+			checkingIndex: {
+				_onEnter: function() {
+					if( options.search_index && options.schema ) {
+						this._assertIndex( options.search_index, options.schema );
+					} else {
+						this.transition( 'creating' );
+					}
+				},
+				'index.asserted': function() {
+					debug( 'Index "%s" created', options.search_index );
+					this.transition( 'creating' );
+				},
+				'index.failed': function( err ) {
+					debug( 'Index assert for %s failed with %s', options.search_index, err );
+				},
+				operate: function( /* call */ ) {
+					this.deferUntilTransition( 'ready' );
+				}
+			},
+			ready: {
+				operate: function( call ) {
+					debug( 'Operation: %s', JSON.stringify( call ) );
+					try {
+						api[ call.operation ].apply( undefined, call.argList )
+							.then( call.resolve, call.reject, call.notify );
+					} catch( err ) {
+						debug( 'Operation: %s failed with %s', JSON.stringify( call ), err );
+						call.reject( err );
+					}
+				}
+			}
 		}
 	} );
-};
 
-Bucket.prototype.del = function( key ) {
-	if( _.isArray( key ) ) {
-		throw "Multi-delete isn't supported"
-	} else if ( _.isObject( key ) && key.id ) {
-		key = key.id;
-	}
-	return when.promise( function( resolve, reject, notify ) {
-		this.riak.client.del( {
-				bucket: this.name,
-				key: key 
-			},
-			function( err, reply ) {
-			if( err ) {
-				reject( err );
-			} else {
-				resolve();
-			}
-		}.bind( this ) );
-	}.bind( this ) );
-};
+	var operations = [ 'del', 'get', 'getKeys', 'getByKeys', 'getKeysByIndex', 'getByIndex', 'mutate', 'put' ];
+	var machine = new Monad();
+	_.each( operations, function( name ) {
+		machine[ name ] = function() { 
+			var list = Array.prototype.slice.call( arguments, 0 );
+			return machine.operate( name, list );
+		}.bind( machine );
+	} );
+	return machine;
+}
 
 module.exports = Bucket;

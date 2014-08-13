@@ -1,8 +1,8 @@
 {
   "name": "riaktive",
-  "version": "0.0.30",
+  "version": "0.1.0-1",
   "description": "A very opinionated riak lib for Node things",
-  "main": "src/riaktive.js",
+  "main": "src/index.js",
   "scripts": {
     "test": "gulp test"
   },
@@ -10,15 +10,19 @@
   "license": "MIT License - http://opensource.org/licenses/MIT",
   "dependencies": {
     "configya": "~0.0.6",
+    "debug": "^1.0.4",
     "lodash": "~2.4.1",
+    "machina": "^0.4.0-1",
+    "node-uuid": "^1.4.1",
     "riakpbc": "git://github.com/nlf/riakpbc.git#riak2",
     "sliver": "~0.0.2",
     "solr-client": "~0.2.9",
     "when": "~3.0.0"
   },
   "devDependencies": {
-    "should": "~3.2.0-beta1",
-    "gulp-mocha": "~0.4.1",
-    "gulp": "~3.5.6"
+    "configya": "0.0.9",
+    "gulp": "~3.8.7",
+    "gulp-mocha": "^0.5.2",
+    "should": "~3.2.0-beta1"
   }
 }

@@ -1,6 +1,5 @@
-require( 'should' );
-var _ = require( 'lodash' ),
-	Vector = require( '../src/vector.js' )( 'nodeid' );
+var should = require( 'should' ); // jshint ignore:line
+var Vector = require( '../src/vector.js' )( 'nodeid' );
 
 describe( 'when version vector has a single node', function() {
 	
@@ -34,12 +33,12 @@ describe( 'when incrementing vector', function() {
 
 		it( 'should increment missing node', function() {
 			v1.toString().should.equal( 'a:1;b:2;nodeid:2' );
-			v1.versions[ 'nodeid' ].should.equal( 2 );
+			v1.versions.nodeid.should.equal( 2 );
 		} );
 
 		it( 'should increment existing node', function() {
 			v2.toString().should.equal( 'b:1;nodeid:2' );
-			v2.versions[ 'nodeid' ].should.equal( 2 );
+			v2.versions.nodeid.should.equal( 2 );
 		} );
 	} );
 
