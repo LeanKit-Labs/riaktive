@@ -46,7 +46,7 @@ function buildIndexQuery( bucketName, index, start, finish, limit, continuation 
 }
 
 function buildPut( bucketName, key, obj, indexes, original ) {
-	var indices = indexes || processIndexes( original._indices );
+	var indices = indexes || processIndexes( original._indexes );
 	var request = {
 		bucket: bucketName,
 		key: key,
@@ -54,12 +54,12 @@ function buildPut( bucketName, key, obj, indexes, original ) {
 		content: content( obj, indices ),
 		vclock: original.vclock || obj.vclock
 	};
-	debug( 'Putting %s to %s in %s', request, key, bucketName );
+	debug( 'Putting %s to %s in %s', JSON.stringify( request ), key, bucketName );
 	return request;
 }
 
 function content( obj, indexes ) { // jshint ignore:line
-	delete obj._indices;
+	delete obj._indexes;
 	var tmp = { 'content_type': 'application/json', value: JSON.stringify( obj ) };
 	if( indexes ) {
 		tmp.indexes = indexes;
@@ -202,29 +202,48 @@ function mutate( riak, bucketName, key, mutateFn ) {
 
 function parseIndexes( doc, obj ) { // jshint ignore:line
 	var collection = {};
-	if( obj.indexes && !doc._indices ) {
+	if( obj.indexes && !doc._indexes ) {
 		_.each( obj.indexes, function( index ) {
+			var key = index.key.replace( '_int', '' ).replace( '_bin', '' );
 			if( /_int$/.test( index.key ) ) {
-				collection[ index.key ] = parseInt( index.value, 10 );
+				
+				if( collection[ key ] ) {
+					collection[ key ] = _.flatten( [ collection[ key ], parseInt( index.value ) ] );
+				} else {
+					collection[ key ] = parseInt( index.value );	
+				}
 			} else {
-				collection[ index.key ] = index.value;
+				if( collection[ key ] ) {
+					collection[ key ] = _.flatten( [ collection[ key ], index.value ] );
+				} else {
+					collection[ key ] = index.value;
+				}
 			}
 		} );
-		doc._indices = collection;
+		doc._indexes = collection;
 	}
 }
 
 function processIndexes( list ) { // jshint ignore:line
-	return _.map( list, function( val, key ) {
+	return _.flatten( _.map( list, function( val, key ) {
+		var isArray = _.isArray( val );
+		var sample = isArray ? val[ 0 ] : val;
+		var vals = isArray ? val : [ val ];
 		if( /[_](bin|int)$/.test( key ) ) {
-			return { key: key, value: val };
+			return _.map( vals, function( x ) { 
+				return { key: key, value: x }; 
+			} );
 		}
-		else if( _.isNumber( val ) ) {
-			return { key: key + '_int', value: val };
+		else if( _.isNumber( sample ) ) {
+			return _.map( vals, function( x ) {
+				return { key: key + '_int', value: x };
+			} );
 		} else {
-			return { key: key + '_bin', value: val };
+			return _.map( vals, function( x ) {
+				return { key: key + '_bin', value: x };
+			} );
 		}
-	} );
+	} ) );
 }
 
 function put( riak, bucketName, key, obj, indexes, getBeforePut ) { // jshint ignore:line
@@ -240,6 +259,9 @@ function put( riak, bucketName, key, obj, indexes, getBeforePut ) { // jshint ig
 	} else if( indexes ) {
 		indexes = processIndexes( indexes );
 	}
+	if( _.isEmpty( indexes ) && obj._indexes ) {
+		indexes = processIndexes( obj._indexes );
+	}
 	obj.id = obj.id || key;
 	
 	var getOriginal = function() { 
@@ -247,7 +269,7 @@ function put( riak, bucketName, key, obj, indexes, getBeforePut ) { // jshint ig
 		delete obj.vclock;
 		return when( {
 			vclock: vclock,
-			_indices: obj._indices
+			_indexes: obj._indexes
 		} );
 	};
 

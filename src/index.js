@@ -1,1 +1,1 @@
-module.exports = { connect: require( './connect.js' ) };
+module.exports = { connect: require( './connection.js' ) };

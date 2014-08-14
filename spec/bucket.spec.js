@@ -35,6 +35,7 @@ describe( 'when creating a bucket', function() {
 				function() { return bucket.get( 'test-key-1' ); },
 				function() { return bucket.mutate( 'test-key-1', function( doc ) {
 					doc.subject = 'greeting';
+					doc._indexes.lookup = [ 10, 40 ];
 					return doc;
 				} ); },
 				function() { return bucket.get( 'test-key-1' ); },
@@ -103,8 +104,16 @@ describe( 'when creating a bucket', function() {
 		fetched.message.should.equal( 'hulloo' );
 	} );
 
+	it( 'should correctly parse indices from doc', function() {
+		fetched._indexes.lookup.should.equal( 10 );
+	} );
+
 	it( 'should mutate without creating siblings', function() {
 		mutated.subject.should.equal( 'greeting' );
+	} );
+
+	it( 'should correctly parse mutated indexes', function() {
+		mutated._indexes.lookup.should.eql( [ 10, 40 ] );
 	} );
 
 	it( 'should get key by index', function() {
