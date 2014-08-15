@@ -52,7 +52,7 @@ describe( 'when connecting', function() {
 		var riak, pong;
 		before( function( done ) {
 			riak = connect( {
-				endpoints: [
+				nodes: [
 					{ host: 'busted', timeout: 200 },
 					{ host: 'hurp', timeout: 200 },
 					{ host: 'derp', timeout: 200 },
@@ -83,7 +83,7 @@ describe( 'when connecting', function() {
 		before( function( done ) {
 			this.timeout( 5000 );
 			riak = connect( {
-				endpoints: [
+				nodes: [
 					{ host: 'busted', timeout: 200 },
 					{ host: 'hurp', timeout: 200 },
 					{ host: 'derp', timeout: 200 },

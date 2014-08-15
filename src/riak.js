@@ -6,7 +6,7 @@ function buildIndexQuery( bucketName, index, start, finish, limit, continuation 
 	if( _.isObject( index ) ) {
 		start = start || index.start;
 		finish = finish || index.finish;
-		limit = limit || index.limit;
+		limit = limit || index.limit || index.max_results;
 		continuation = continuation || index.continuation;
 		index = index.index;
 	}
@@ -136,9 +136,11 @@ function getByIndex( riak, bucketName, index, start, finish, limit, continuation
 					);
 				} );
 			} )
-			.then( function() {
+			.then( function( next ) {
 				debug( 'Resolving %s keys', promises.length );
-				when.all( promises ).then( resolve );
+				when.all( promises ).then( function() {
+					resolve( next );
+				} );
 			} );		
 	} );
 }
@@ -154,14 +156,9 @@ function getKeysByIndex( riak, bucketName, index, start, finish, limit, continua
 	return riak.getIndex( query )
 			.then( function() {
 				if( newContinuation ) {
-					return {
-						index: index,
-						limit: limit,
-						start: start,
-						finish: finish,
-						continuation: newContinuation
-					};
+					query.continuation = newContinuation;
 				}
+				return query;
 			} )
 			.progress( function( data ) {
 				if( data ) {

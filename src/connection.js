@@ -9,17 +9,17 @@ var uuid = require( 'node-uuid' );
 var debug = require( 'debug' )( 'riaktive:connection' );
 
 function connect( options ) {
-	var endpoints = []; 
+	var nodes = []; 
 	var retries = 1000;
 	var nodeId;
 	var failed = function() {};
 	if( _.isArray( options ) ) {
-		endpoints = options;
+		nodes = options;
 	} else if( _.isObject( options ) ) {
-		if( options.endpoints ) {
-			endpoints = options.endpoints || endpoints;
+		if( options.nodes ) {
+			nodes = options.nodes || nodes;
 		} else {
-			endpoints = [ { 
+			nodes = [ { 
 				host: options.host, 
 				port: options.port, 
 				http: options.http, 
@@ -34,11 +34,11 @@ function connect( options ) {
 		nodeId = uuid.v4();
 	}
 	var client;
-	var defaultEndpoint = { host: 'localhost', port: 8087, http: 8098, timeout: '5000' };
+	var defaultNode = { host: 'localhost', port: 8087, http: 8098, timeout: '5000' };
 	var lifted;
-	var endpoint = 0;
+	var nodeIndex = 0;
 	var attempts = 0;
-	var limit = endpoints ? endpoints.length : 0;
+	var limit = nodes ? nodes.length : 0;
 	var Monad = machina.Fsm.extend( {
 			ids: require( 'sliver' )( nodeId ),
 			bucket: function( bucketName, options ) {
@@ -60,9 +60,9 @@ function connect( options ) {
 			},
 
 			connect: function() {
-				var opts = this.getEndpoint();
+				var opts = this.getNode();
 				attempts ++;
-				debug( 'attempting connection to endpoint %d: %s', endpoint, JSON.stringify( opts ) );
+				debug( 'attempting connection to node %d: %s', nodeIndex, JSON.stringify( opts ) );
 				client = riakpbc.createClient( opts );
 				lifted = lift( client );
 				lifted.connect()
@@ -83,9 +83,9 @@ function connect( options ) {
 				}
 			},
 
-			getEndpoint: function() {
-				var next = _.isEmpty( endpoints ) ? {} : endpoints[ endpoint ];
-				return _.defaults( next, defaultEndpoint );
+			getNode: function() {
+				var next = _.isEmpty( nodes ) ? {} : nodes[ nodeIndex ];
+				return _.defaults( next, defaultNode );
 			},
 
 			operate: function( call, args ) {
@@ -106,10 +106,10 @@ function connect( options ) {
 			},
 
 			_bumpIndex: function() {
-				if( endpoint === limit - 1 ) {
-					endpoint = 0;
+				if( nodeIndex === limit - 1 ) {
+					nodeIndex = 0;
 				} else {
-					endpoint++;
+					nodeIndex++;
 				}
 			},
 
@@ -129,7 +129,7 @@ function connect( options ) {
 			states: {
 				'closed': {
 					_onEnter: function() {
-						debug( 'Connection to %s closed', JSON.stringify( this.getEndpoint() ) );
+						debug( 'Connection to %s closed', JSON.stringify( this.getNode() ) );
 					},
 					operate: function( /* call */ ) {
 						this.deferUntilTransition( 'connected' );
@@ -141,12 +141,12 @@ function connect( options ) {
 						this.connect();
 					},
 					connection: function() {
-						debug( 'connection to %s established', JSON.stringify( this.getEndpoint() ) );
+						debug( 'connection to %s established', JSON.stringify( this.getNode() ) );
 						attempts = 0;
 						this.transition( 'connected' );
 					},
 					'connection.failed': function( err ) {
-						debug( 'connection to %s failed with %s', JSON.stringify( this.getEndpoint() ), err );
+						debug( 'connection to %s failed with %s', JSON.stringify( this.getNode() ), err );
 						if( attempts > retries ) {
 							this.transition( 'failed' );
 						} else {
@@ -161,7 +161,7 @@ function connect( options ) {
 				},
 				'connected': {
 					'disconnect': function( err ) {
-						debug( 'Lost connection to %s with %s', JSON.stringify( this.getEndpoint() ), err );
+						debug( 'Lost connection to %s with %s', JSON.stringify( this.getNode() ), err );
 						this.transition( 'disconnected' );
 					},
 					operate: function( call ) {

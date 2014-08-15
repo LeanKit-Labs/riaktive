@@ -36,9 +36,9 @@ If you don't specify a schema file, riaktive will provide one with the closest t
 ## Quick Start
 
 ```javascript
-var riak = require( 'riaktive' );
+var riaktive = require( 'riaktive' );
 
-riak.connect(); // defaults to 127.0.0.1 at port 8087 with http port at 8098 for Solr queries
+var riak = riaktive.connect(); // defaults to 127.0.0.1 at port 8087 with http port at 8098 for Solr queries
 var bucket = riak.bucket( 'mahbucket' ); // creates a bucket with default options
 
 var doc = {
@@ -95,7 +95,7 @@ Riaktive now supports multiple nodes. Each node is defined by a simple object wi
 }
 ```
 
-You can supply a list of them during the connect call. Riaktive will attempt to connect to the endpoints in order. Once a connection is established, it is held until the connection to that node is lost.
+You can supply a list of them during the connect call. Riaktive will attempt to connect to the nodes in order. Once a connection is established, it is held until the connection to that node is lost.
 
 ```javascript
 // in this example, all servers use default ports, all we need to supply is the host name
@@ -124,7 +124,7 @@ You can limit reconnection attempts and get notified of when they've been exhaus
 
 ```javascript
 riak.connect( {
-	endpoints: [ 
+	nodes: [ 
 		{ host: 'riak-node1' },
 		{ host: 'riak-node2' },
 		{ host: 'riak-node3' },
@@ -148,7 +148,7 @@ Riak will generate a 128 bit, base 62 encoded, k-ordered, lexicographically sort
 
 ```javascript
 riak.connect( {
-	endpoints: [
+	nodes: [
 		...
 	],
 	nodeId: 'this-must-be-globally-unique'

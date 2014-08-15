@@ -5,10 +5,10 @@ var http = require( 'http' );
 var createApi = require( './riak.js' ).createIndex;
 var SolrError = require('../node_modules/solr-client/lib/error/solr-error.js');
 
-function createClient( endpoint, index ) {
+function createClient( node, index ) {
 	var solr = solrClient.createClient( {
-		host: endpoint.host,
-		port: endpoint.http || 8098,
+		host: node.host,
+		port: node.http || 8098,
 		core: index,
 		path: '/search/query'
 	} );
@@ -169,6 +169,6 @@ function search( riak, solr, body, params, includeStats ) {
 
 module.exports = function( riak, index ) {
 	var api = createApi( riak );
-	var solr = createClient( riak.getEndpoint(), index );
+	var solr = createClient( riak.getNode(), index );
 	return { search: search.bind( undefined, api, solr ) };
 };

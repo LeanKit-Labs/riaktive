@@ -26,7 +26,7 @@ function Bucket( bucket, options, riak ) {
 	var defaults = { 
 			search_index: bucketName + '_index',
 			schema: 'riaktive_schema',
-			schemaPath: path.resolve( './src', 'default_solr.xml' ),
+			schemaPath: path.join( __dirname, 'default_solr.xml' ),
 			allow_mult: true 
 		};
 	var api = createBucket( riak, bucketName );
