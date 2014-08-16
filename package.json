@@ -1,7 +1,7 @@
 {
   "name": "riaktive",
-  "version": "0.1.0-3",
-  "description": "A very opinionated riak lib for Node things",
+  "version": "0.1.0-4",
+  "description": "A Riak API abstraction built on riakpbc that aims for simplicity.",
   "main": "src/index.js",
   "scripts": {
     "test": "gulp test"
