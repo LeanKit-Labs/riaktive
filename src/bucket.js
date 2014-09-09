@@ -30,10 +30,11 @@ function Bucket( bucket, options, riak ) {
 			allow_mult: true 
 		};
 	var api = createBucket( riak, bucketName );
+	var alias = options.alias;
 	options = _.omit( options, 'alias' );
 	options = _.defaults( options, defaults );
 	var Monad = machina.Fsm.extend( {
-		alias: options.alias || bucketName,
+		alias: alias || bucketName,
 		name: bucketName,
 		operate: function( call, args ) {
 			var op = { operation: call, argList: args },

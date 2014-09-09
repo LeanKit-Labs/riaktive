@@ -12,7 +12,7 @@ describe( 'when creating a bucket', function() {
 	before( function( done ) {
 		this.timeout( 20000 );
 		riak = connect( { host: config.riak.server } );
-		var bucket = riak.bucket( [ 'mah', 'bucket' ] );
+		var bucket = riak.bucket( [ 'mah', 'bucket' ], { alias: 'mahBucket' } );
 		// here is a descriptions of the steps this sequence takes
 		// 1. read the bucket properties
 		// 2. create a document at 'test-key-1' with secondary index of 'lookup_int': 10
@@ -31,8 +31,8 @@ describe( 'when creating a bucket', function() {
 		// 15 - 17. delete the keys created as part of this sequence
 		seq( [
 				function() { return riak.getBucket( { bucket: 'mah_bucket' } ); },
-				function() { return bucket.put( 'test-key-1', { message: 'hulloo' }, { lookup: 10 } ); },
-				function() { return bucket.get( 'test-key-1' ); },
+				function() { return riak.mahBucket.put( 'test-key-1', { message: 'hulloo' }, { lookup: 10 } ); },
+				function() { return riak.mahBucket.get( 'test-key-1' ); },
 				function() { return bucket.mutate( 'test-key-1', function( doc ) {
 					doc.subject = 'greeting';
 					doc._indexes.lookup = [ 10, 40 ];
