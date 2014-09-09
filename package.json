@@ -1,6 +1,6 @@
 {
   "name": "riaktive",
-  "version": "0.1.0-4",
+  "version": "0.1.0-5",
   "description": "A Riak API abstraction built on riakpbc that aims for simplicity.",
   "main": "src/index.js",
   "scripts": {

@@ -9,9 +9,9 @@ describe( 'with connection to solr and an indexed bucket', function () {
 	describe( 'with nested documents', function () {
 		var list = [];
 		before( function( done ) {
-			this.timeout( 50000 );
+			this.timeout( 60000 );
 			riak = connect( { host: config.riak.server } );
-			bucket = riak.bucket( 'testBucket', { search_index: 'testBucket_index', schema: 'riaktive_schema' } );
+			bucket = riak.bucket( 'testBucket1', { search_index: 'testBucket_index', schema: 'riaktive_schema' } );
 			index = riak.index( 'testBucket_index' );
 			seq( [
 				function() { 

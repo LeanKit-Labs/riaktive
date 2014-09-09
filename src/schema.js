@@ -8,39 +8,48 @@ function SchemaManager( riak ) {
 }
 
 function checkSchema( riak, schemas, name ) {
-	if( schemas[ name ] ) {
+	if ( schemas[ name ] ) {
 		return schemas[ name ];
 	} else {
-		return ( schemas[ name ] = riak.ykGetSchema( { name: name } )
-			.then( null, function( err ) {
+		return ( schemas[ name ] = riak.yzGetSchema( {
+				name: name
+			} )
+			.then( null, function ( err ) {
 				debug( 'Failed to fetch schema %s with %s', name, err );
 				return undefined;
 			} )
-			.then( function( reply ) {
+			.then( function ( reply ) {
 				debug( 'Fetched schema %s', name );
-				return reply.schema? reply.schema.content : undefined;
+				return reply.schema ? reply.schema.content : undefined;
 			} ) );
 	}
 }
 
 function compareSchema( riak, schemas, name, schemaContent ) {
 	// DO NOT CHANGE THE EQUALITY COMPARER!
-	return when.try( function( x, y ) { return x == y; }, checkSchema( riak, schemas, name ), schemaContent ); // jshint ignore:line
-	
+	return when.try( function ( x, y ) {
+		return x == y; // jshint ignore:line
+	}, checkSchema( riak, schemas, name ), schemaContent );
+
 }
 
 function setSchema( riak, schemas, name, schemaPath ) { // jshint ignore:line
 	var content = fs.readFileSync( schemaPath, 'utf8' );
-	return when.try( function( equal ) {
-		if( equal ) {
+	return when.try( function ( equal ) {
+		if ( equal ) {
 			return when( true );
 		} else {
 			debug( 'Creating schema %s from file %s', name, schemaPath );
-			return riak.ykPutSchema( { schema: { name: name, content: content } } )
-				.then( function() {
+			return riak.yzPutSchema( {
+					schema: {
+						name: name,
+						content: content
+					}
+				} )
+				.then( function () {
 					schemas[ name ] = content;
 				} );
-			
+
 		}
 	}, compareSchema( riak, schemas, name, content ) );
 }

@@ -1,39 +1,48 @@
-var	when = require( 'when' );
-var	debug = require( 'debug' )( 'riaktive:index' );
+var when = require( 'when' );
+var debug = require( 'debug' )( 'riaktive:index' );
 
-var IndexManager = function( riak ) {
+var IndexManager = function ( riak ) {
 	this.indexes = {};
 	this.create = setIndex.bind( undefined, riak, this.indexes );
 };
 
 function getIndex( riak, indexes, name ) {
-	if( indexes[ name ] ) {
+	if ( indexes[ name ] ) {
 		return indexes[ name ];
 	} else {
-		return ( indexes[ name ] = riak.ykGetIndex( { name: name } )
-			.then( null, function( /* err */ ) {
+		return ( indexes[ name ] = riak.yzGetIndex( {
+				name: name
+			} )
+			.then( null, function ( /* err */) {
 				return {};
 			} )
-			.then( function( reply ) {
+			.then( function ( reply ) {
 				return reply.index ? reply.index[ 0 ].schema : undefined;
 			} ) );
 	}
 }
 
 function compareIndex( riak, indexes, name, schema ) {
-	return when.try( function( x ) { return x === schema; }, getIndex( riak, indexes, name ) );
+	return when.try( function ( x ) {
+		return x === schema;
+	}, getIndex( riak, indexes, name ) );
 }
 
 function setIndex( riak, indexes, name, schema ) { // jshint ignore:line
-	return when.try( function( equal ) {
-		if( equal ) {
-			return when( false ); 
+	return when.try( function ( equal ) {
+		if ( equal ) {
+			return when( false );
 		} else {
 			debug( 'Creating index %s with schema %s', name, schema );
-			return riak.ykPutIndex( { index: { name: name, schema: schema } } )
-				.then( function() {
+			return riak.yzPutIndex( {
+					index: {
+						name: name,
+						schema: schema
+					}
+				} )
+				.then( function () {
 					indexes[ name ] = schema;
-					return( true );
+					return ( true );
 				} );
 		}
 	}, compareIndex( riak, indexes, name, schema ) );

@@ -10,7 +10,7 @@ describe( 'when creating a bucket', function() {
 		list2 = [];
 
 	before( function( done ) {
-		this.timeout( 10000 );
+		this.timeout( 20000 );
 		riak = connect( { host: config.riak.server } );
 		var bucket = riak.bucket( [ 'mah', 'bucket' ] );
 		// here is a descriptions of the steps this sequence takes
