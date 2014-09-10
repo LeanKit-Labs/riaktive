@@ -1,3 +1,4 @@
+var _ = require( 'lodash' );
 var should = require( 'should' ); // jshint ignore:line
 var seq = require( 'when/sequence' );
 var connect = require( '../src/connection.js' );
@@ -31,7 +32,7 @@ describe( 'when creating a bucket', function() {
 		// 15 - 17. delete the keys created as part of this sequence
 		seq( [
 				function() { return riak.getBucket( { bucket: 'mah_bucket' } ); },
-				function() { return riak.mahBucket.put( 'test-key-1', { message: 'hulloo' }, { lookup: 10 } ); },
+				function() { return riak.mahBucket.put( 'test-key-1', { message: 'hulloo', aList: [ 'a', 'b', 'c' ] }, { lookup: 10 } ); },
 				function() { return riak.mahBucket.get( 'test-key-1' ); },
 				function() { return bucket.mutate( 'test-key-1', function( doc ) {
 					doc.subject = 'greeting';
@@ -109,7 +110,12 @@ describe( 'when creating a bucket', function() {
 	} );
 
 	it( 'should mutate without creating siblings', function() {
-		mutated.subject.should.equal( 'greeting' );
+		_.omit( mutated, '_indexes', 'vclock' ).should.eql( {
+			id: 'test-key-1',
+			subject: 'greeting',
+			message: 'hulloo',
+			aList: [ 'a', 'b', 'c' ]
+		} );
 	} );
 
 	it( 'should correctly parse mutated indexes', function() {
