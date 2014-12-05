@@ -1,7 +1,7 @@
 var _ = require( 'lodash' );
 var should = require( 'should' ); // jshint ignore:line
 var seq = require( 'when/sequence' );
-var connect = require( '../src/connection.js' );
+var connect = require( '../src/index.js' ).connect;
 var config = require( 'configya' )( './config.json', { riak: { server: 'ubuntu' } } );
 
 describe( 'when creating a bucket', function() {

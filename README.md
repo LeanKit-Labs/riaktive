@@ -9,7 +9,7 @@ I also hope that putting a simpler API out there will encourage folks to give Ri
 ## Features
 
  * Promises API
- * Cluster connectivity (attempts to select an available node if one connection fails)
+ * Connection pooling
  * Secondary indexing
  * Paging
  * 'Mutate' (fetch -> change -> put)
@@ -25,7 +25,7 @@ I also hope that putting a simpler API out there will encourage folks to give Ri
  * default SOLR schema
 
 ### levelDB
-levelDB is currently the best way I know to solve for certain common data access patterns (like paging). Depending on how you're using the secondary indexes, it's possible you could see some small performance hits. Give how insanely fast Riak is, my guess is that other areas of your app will be bottlenecks long before Riak is.
+levelDB is currently the best way I know to solve for certain common data access patterns (like paging). Depending on how you're using the secondary indexes, it's possible you could see some small performance hits. Give how fast Riak is, my guess is that other areas of your app will be bottlenecks long before Riak is.
 
 ### Allow Siblings
 This library defaults buckets to `allow_mult=true` on creation. While you could change this, you should not play last-write-wins roulette :)
@@ -85,27 +85,47 @@ index.search( { name: 'kitteh' } )
 ```
 
 ## Connectivity
-Riaktive now supports multiple nodes. Each node is defined by a simple object with the following properties (defaults shown):
+Riaktive now supports multiple nodes and makes use of connection pooling. Each node is defined by a simple object with `host`, `port`, `http` and `timeout` properties. When any of these properties is not defined, default values will be used.
 
+In addition to node definitions, you can provide `wait`, `retries` and `failed` parameters which control how `riaktive` behaves when connections fail.
+
+### single node example - uses default wait and retries
 ```javascript
-{ 
-	host: 'localhost', 
-	port: 8097, // PBC port
-	http: 8098 // HTTP port (for Solr requests)
-}
+var riak = riaktive.connect( { 
+	host: 'localhost', // default host address
+	port: 8097, // default PBC port
+	http: 8098 // default HTTP port (for Solr requests),
+	timeout: 2000 // default number of miliseconds riaktive will wait for a connection
+} );
 ```
 
-You can supply a list of them during the connect call. Riaktive will attempt to connect to the nodes in order. Once a connection is established, it is held until the connection to that node is lost.
+### node list example - uses default wait and retries
 
 ```javascript
 // in this example, all servers use default ports, all we need to supply is the host name
-riak.connect( [
+var riak = riaktive.connect( [
 	{ host: 'riak-node1' },
 	{ host: 'riak-node2' },
 	{ host: 'riak-node3' },
 	{ host: 'riak-node4' },
 	{ host: 'riak-node5' }
 ] );
+```
+
+### full configuration
+```javascript
+var riak = riaktive.connect( {
+	nodes: [ 
+		{ host: 'riak-node1' },
+		{ host: 'riak-node2' },
+		{ host: 'riak-node3' },
+		{ host: 'riak-node4' },
+		{ host: 'riak-node5' }
+	],
+	wait: 5000, // the number of ms to wait between retrying nodes
+	retries: 5, // the number of retries allowed before treating the node as unreachable
+	failed: function() { // what to do when retries are exhausted across all nodes }
+} );
 ```
 
 ### Command deferral
@@ -117,33 +137,21 @@ All commands are delayed until:
 
 Since all commands return a promise, you don't have to take any additional steps. The upside is that your application's flow isn't determined by connectivity timing.
 
-In the event that no connection is ever established, the promises returned by your calls will never resolve.
+In the event that no connection is ever established, the promises will all be rejected.
 
 ### Reconnection limit
-You can limit reconnection attempts and get notified of when they've been exhausted. The count of retries are reset every time a connection is successfully established.
+Once the attempts to connect to a node have failed a consecutive number of times beyond the retries limit, the node will be marked as unreachable and taken out of the connection pool rotation. 
 
-```javascript
-riak.connect( {
-	nodes: [ 
-		{ host: 'riak-node1' },
-		{ host: 'riak-node2' },
-		{ host: 'riak-node3' },
-		{ host: 'riak-node4' },
-		{ host: 'riak-node5' }
-	],
-	retries: 3,
-	failed: function() { // what to do when retries are exhausted }
-} );
-```
+When retries have been exhausted across all nodes, any outstanding promises for API calls will be rejected and the `failed` callback (if provided) will get called.
 
 ### Resetting
-In the event that you want riaktive to start trying connections again, just call reset:
+Once a connection pool has shutdown due to all nodes passing their reconnection limit, the pool can be restarted by calling `reset`:
 
 ```javascript
 riak.reset();
 ```
 
-### Flake-ids
+## Flake-ids
 Riak will generate a 128 bit, base 62 encoded, k-ordered, lexicographically sortable ids. The only prerequisite for this feature is providing a **globally unique** node id for your service instance. as part of the connect call:
 
 ```javascript
@@ -288,6 +296,10 @@ myBucketIndex.search( { name: 'Waldo } )
 	.progress( function( matchingDoc ) { /* do something with match */ } )
 	.then( function( statistics ) { /* do something with stats */ } );
 ```
+
+## Roadmap
+ * Spin up multiple connections per node in the connection pool when demand exceeds available connections
+ * Decrease the number of connections per node in the connection pool if demand decreases
 
 ## Missing
 If you see promise here but are disappointed about the lack of support for the following list, feel free to contribute:
