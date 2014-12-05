@@ -33,7 +33,7 @@ module.exports = function( presetNodeId ) {
 				other ++;
 			}
 		}.bind( this ) );
-		if( local == 0 && other == 0 ) {
+		if( local === 0 && other === 0 ) {
 			return 'equal';
 		} else if ( local > 0 && other > 0 ) {
 			return 'diverged';

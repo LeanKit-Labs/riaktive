@@ -1,57 +1,45 @@
-require( 'should' );
-var config = require( 'configya' )( './spec/config.json' ),
-	riak = require( '../src/riaktive.js' )( config ),
-	_ = require( 'lodash' ),
-	index;
-
-describe( 'when connecting to riak', function() {
-	before( function( done ) {
-		riak.connect()
-			.done( function() { done(); } );
-	} );
-
-	it( 'should be connected', function() {
-		riak.connected.should.be.true;
-	} );
-} );
+var should = require( 'should' ); // jshint ignore:line
+var seq = require( 'when/sequence' );
+var connect = require( '../src/connection.js' );
+var config = require( 'configya' )( './config.json', { riak: { server: 'ubuntu' } } );
 
 describe( 'with connection to solr and an indexed bucket', function () {
-	var bucket, index;
-	before( function( done ) {
-		this.timeout( 20000 );
-		riak.createBucket( 'testBucket', { search_index: 'testBucket_index', schema: 'riaktive_schema' } )
-			.done( function( b ) {
-				bucket = b;
-				index = riak.getSearchIndex( 'testBucket_index' );
-				done();
-			} );
-	} );
-
-	it( 'should create the bucket successfully', function() {
-		bucket.should.be.ok;
-		index.should.be.ok;
-	} );
+	var riak, bucket, index;
 
 	describe( 'with nested documents', function () {
 		var list = [];
 		before( function( done ) {
-			this.timeout( 5000 );
-			bucket.put( { id: 'one', name: 'Alex', children: [ { name: 'Dexter' } ] } );
-			bucket.put( { id: 'two', name: 'Ian', children: [ { name: 'Ty' }, { name: 'Michah' }, { name: 'Averie' } ] } );
-
-			setTimeout( function() {
-				index.search( { 'children.name': 'averie' } )
-					 .progress( function( item ) {
-					 	//console.log( item );
-					 } )
-					 .then( null, function( err ) {
-					 	done();
-					 } )
-					 .done( function( all ) {
-					 	list = all;
-					 	done();
-					 } );
-			}, 2000 );
+			this.timeout( 60000 );
+			riak = connect( { host: config.riak.server } );
+			bucket = riak.bucket( 'testBucket1', { search_index: 'testBucket_index', schema: 'riaktive_schema' } );
+			index = riak.index( 'testBucket_index' );
+			seq( [
+				function() { 
+					return bucket.put( { 
+						id: 'one', 
+						name: 'Alex', 
+						children: [ { name: 'Dexter' } ] 
+					} );
+				},
+				function() {
+					bucket.put( { 
+						id: 'two', 
+						name: 'Ian', 
+						children: [ { name: 'Ty' }, { name: 'Michah' }, { name: 'Averie' } ] 
+					} );
+				},
+				function() {
+					setTimeout( function() {
+						index.search( { 'children.name': 'averie' } )
+							.progress( function( item ) {
+								list.push( item );
+							} )
+							.then( function() {
+								done();
+							} );
+					}, 2000 );
+				}
+			] );
 		} );
 
 		it( 'should return expected match', function() {
@@ -60,9 +48,14 @@ describe( 'with connection to solr and an indexed bucket', function () {
 			match.name.should.equal( 'Ian' );
 		} );
 
-		after( function() {
-			bucket.del( 'one' );
-			bucket.del( 'two' );
+		after( function( done ) {
+			seq( [
+					function() { return bucket.del( 'one' ); },
+					function() { return bucket.del( 'two' ); }
+				] )
+			.then( function() {
+				done();
+			} );
 		} );
 	} );
 
@@ -76,16 +69,16 @@ describe( 'with connection to solr and an indexed bucket', function () {
 
 			setTimeout( function() {
 				index.search( { 'name': '*' }, { start:1, rows:2 }, true )
-					 .progress( function( item ) {
-					 	//console.log( item );
-					 } )
-					 .then( null, function( err ) {
-					 	done();
-					 } )
-					 .done( function( res ) {
-					 	result = res;
-					 	done();
-					 } );
+					.progress( function( /* item */ ) {
+						
+					} )
+					.then( null, function( /* err */ ) {
+						done();
+					} )
+					.done( function( res ) {
+						result = res;
+						done();
+					} );
 			}, 2000 );
 		} );
 
@@ -104,17 +97,22 @@ describe( 'with connection to solr and an indexed bucket', function () {
 		});
 
 		it( 'should show query max score', function() {
-			result.maxScore.should.ok;
+			result.maxScore.should.ok; //jshint ignore:line
 		});
 
 		it( 'should show query duration', function() {
-			result.qTime.should.be.ok;
+			result.qTime.should.be.ok; //jshint ignore:line
 		});
 	
-		after( function() {
-			bucket.del( 'one' );
-			bucket.del( 'two' );
-			bucket.del( 'three' );
+		after( function( done ) {
+			seq( [
+					function() { return bucket.del( 'one' ); },
+					function() { return bucket.del( 'two' ); },
+					function() { return bucket.del( 'three' ); }
+				] )
+			.then( function() {
+				done(); 
+			} );
 		} );
 	} );
 
@@ -128,16 +126,13 @@ describe( 'with connection to solr and an indexed bucket', function () {
 
 			setTimeout( function() {
 				index.search( { 'name': '*' }, { sort: { age:'desc' } }, true )
-					 .progress( function( item ) {
-					 	//console.log( item );
-					 } )
-					 .then( null, function( err ) {
-					 	done();
-					 } )
-					 .done( function( res ) {
-					 	result = res;
-					 	done();
-					 } );
+					.then( null, function( /* err */ ) {
+						done();
+					} )
+					.done( function( res ) {
+						result = res;
+						done();
+					} );
 			}, 2000 );
 		} );
 
@@ -147,10 +142,15 @@ describe( 'with connection to solr and an indexed bucket', function () {
 			match.name.should.equal( 'Fred' );
 		} );
 	
-		after( function() {
-			bucket.del( 'four' );
-			bucket.del( 'five' );
-			bucket.del( 'six' );
+		after( function( done ) {
+			seq( [
+					function() { return bucket.del( 'four' ); },
+					function() { return bucket.del( 'five' ); },
+					function() { return bucket.del( 'six' ); }
+				] )
+			.then( function() {
+				done(); 
+			} );
 		} );
 	} );
 
@@ -158,23 +158,20 @@ describe( 'with connection to solr and an indexed bucket', function () {
 		var error;
 		before( function( done ) {
 
-			index.search( { name: 'this has spaces but is not enclosed in quotes' } 	 )
-				 .progress( function( item ) {
-				 	//console.log( item );
-				 } )
-				 .then( null, function( err ) {
-				 	error = err;
-				 	done();
-				 } )
-				 .done( function( res ) {
-				 	if( res ) {
-				 		done();
-				 	}
-				 } );
+			index.search( { name: 'this has spaces but is not enclosed in quotes' } )
+				.then( null, function( err ) {
+					error = err;
+					done();
+				} )
+				.done( function( res ) {
+					if( res ) {
+						done();
+					}
+				} );
 		});
 		
 		it( 'should return solrError message', function() {
 			error.name.should.equal( 'SolrError' );
 		});
-	})
+	} );
 } );
