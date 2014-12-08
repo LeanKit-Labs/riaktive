@@ -1,6 +1,6 @@
 var should = require( 'should' ); // jshint ignore:line
 var seq = require( 'when/sequence' );
-var connect = require( '../src/connection.js' );
+var connect = require( '../src/index.js' ).connect;
 var config = require( 'configya' )( './config.json', { riak: { server: 'ubuntu' } } );
 
 describe( 'with connection to solr and an indexed bucket', function () {
@@ -62,10 +62,10 @@ describe( 'with connection to solr and an indexed bucket', function () {
 	describe( 'with query stats', function() {
 		var result;
 		before( function( done ) {
-			this.timeout( 5000 );
-			bucket.put( { id: 'one', name: 'Alex' } );
-			bucket.put( { id: 'two', name: 'Ian'  } );
-			bucket.put( { id: 'three', name: 'Becca' } );
+			this.timeout( 10000 );
+			bucket.put( { id: 'four', name: 'Alex' } );
+			bucket.put( { id: 'five', name: 'Ian'  } );
+			bucket.put( { id: 'six', name: 'Becca' } );
 
 			setTimeout( function() {
 				index.search( { 'name': '*' }, { start:1, rows:2 }, true )
@@ -106,9 +106,9 @@ describe( 'with connection to solr and an indexed bucket', function () {
 	
 		after( function( done ) {
 			seq( [
-					function() { return bucket.del( 'one' ); },
-					function() { return bucket.del( 'two' ); },
-					function() { return bucket.del( 'three' ); }
+					function() { return bucket.del( 'four' ); },
+					function() { return bucket.del( 'five' ); },
+					function() { return bucket.del( 'six' ); }
 				] )
 			.then( function() {
 				done(); 
@@ -120,9 +120,9 @@ describe( 'with connection to solr and an indexed bucket', function () {
 		var result;
 		before( function( done ) {
 			this.timeout( 5000 );
-			bucket.put( { id: 'four', name: 'Fred', age:23 } );
-			bucket.put( { id: 'five', name: 'Sally', age:35  } );
-			bucket.put( { id: 'six', name: 'Becca', age:35 } );
+			bucket.put( { id: 'seven', name: 'Fred', age:23 } );
+			bucket.put( { id: 'eight', name: 'Sally', age:35  } );
+			bucket.put( { id: 'nine', name: 'Becca', age:35 } );
 
 			setTimeout( function() {
 				index.search( { 'name': '*' }, { sort: { age:'desc' } }, true )
@@ -144,9 +144,9 @@ describe( 'with connection to solr and an indexed bucket', function () {
 	
 		after( function( done ) {
 			seq( [
-					function() { return bucket.del( 'four' ); },
-					function() { return bucket.del( 'five' ); },
-					function() { return bucket.del( 'six' ); }
+					function() { return bucket.del( 'seven' ); },
+					function() { return bucket.del( 'eight' ); },
+					function() { return bucket.del( 'nine' ); }
 				] )
 			.then( function() {
 				done(); 

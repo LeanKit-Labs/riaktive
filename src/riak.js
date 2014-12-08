@@ -80,7 +80,7 @@ function del( riak, bucketName, key ) {
 }
 
 function formatContent( reply, content ) {
-	var doc = content.value;
+	var doc = JSON.parse( content.value.toString() );
 	doc.vclock = reply.vclock;
 	parseIndexes( doc, content );
 	return doc;
@@ -291,7 +291,7 @@ function put( riak, bucketName, key, obj, indexes, getBeforePut ) { // jshint ig
 function readBucket( riak, bucketName ) {
 	return riak.getBucket( { bucket: bucketName } )
 		.then( null, function( err ) {
-			debug( 'Failed to read bucket properties for %s with %s', bucketName, err );
+			debug( 'Failed to read bucket properties for %s with %s', bucketName, err.stack );
 			return {};
 		} )
 		.then( function ( bucket ) {

@@ -1,6 +1,6 @@
 {
   "name": "riaktive",
-  "version": "0.1.0-6",
+  "version": "0.1.0-7",
   "description": "A Riak API abstraction built on riakpbc that aims for simplicity.",
   "main": "src/index.js",
   "scripts": {
@@ -13,8 +13,9 @@
     "debug": "^1.0.4",
     "lodash": "~2.4.1",
     "machina": "^0.4.0-1",
+    "monologue.js": "^0.2.1",
     "node-uuid": "^1.4.1",
-    "riakpbc": "git://github.com/nlf/riakpbc.git#riak2",
+    "riakpbc": "~2.1.0",
     "sliver": "~0.0.2",
     "solr-client": "~0.2.9",
     "when": "~3.0.0"

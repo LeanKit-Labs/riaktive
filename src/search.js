@@ -8,7 +8,7 @@ var SolrError = require('../node_modules/solr-client/lib/error/solr-error.js');
 function createClient( node, index ) {
 	var solr = solrClient.createClient( {
 		host: node.host,
-		port: node.http || 8098,
+		port: node.http,
 		core: index,
 		path: '/search/query'
 	} );
