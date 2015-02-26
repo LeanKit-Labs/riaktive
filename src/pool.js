@@ -10,10 +10,12 @@ function createPool( config, factory ) {
 	var waiting = [];
 	var shutdown = 0;
 	var closed = false;
-	
+
 	function acquire( cb ) {
-		var connection = _.find( nodeConnections, function( list ) { return _.first( list ); } );
-		if( connection && connection.length ) {
+		var connection = _.find( nodeConnections, function( list ) {
+			return _.first( list );
+		} );
+		if ( connection && connection.length ) {
 			cb( null, connection[ 0 ] );
 		} else {
 			debug( 'Enqueueing connection acquisition. %d in the queue.', ( waiting.length + 1 ) );
@@ -22,8 +24,8 @@ function createPool( config, factory ) {
 	}
 
 	function initialize() {
-		if( !closed ) {
-			for( var i = 0; i < nodeConnections.length; i ++ ) {
+		if ( !closed ) {
+			for (var i = 0; i < nodeConnections.length; i++) {
 				newManager( i );
 				nodeConnections[ i ] = [];
 			}
@@ -31,8 +33,8 @@ function createPool( config, factory ) {
 	}
 
 	function onConnection( connection ) {
-		if( connection.state === 'connected' ) {
-			if( waiting.length ) {
+		if ( connection.state === 'connected' ) {
+			if ( waiting.length ) {
 				debug( 'Granting acquisition request from queue. %d remaining in the queue.', ( waiting.length - 1 ) );
 				waiting.shift()( null, connection );
 			} else {
@@ -52,13 +54,13 @@ function createPool( config, factory ) {
 		connection.off( 'disconnected' );
 		connection.off( 'shutdown' );
 		connection.off( 'closed' );
-		if( config.failed ) {
+		if ( config.failed ) {
 			config.failed();
 		}
 		managers = _.without( managers, connection );
-		if( ++shutdown === nodes.length && !closed ) {
+		if ( ++shutdown === nodes.length && !closed ) {
 			debug( 'All defined nodes have shutdown. Connection pool will require a reset to continue attempting connections.' );
-			while( waiting.length ) {
+			while (waiting.length) {
 				waiting.pop()( new Error( 'All nodes were unreachable.' ) );
 			}
 		}
@@ -71,7 +73,7 @@ function createPool( config, factory ) {
 		connection.off( 'shutdown' );
 		connection.off( 'closed' );
 		managers = _.without( managers, connection );
-		if( managers.length === 0 ) {
+		if ( managers.length === 0 ) {
 			debug( 'All connections in the pool have closed' );
 		}
 	}
@@ -100,8 +102,14 @@ function createPool( config, factory ) {
 				manager.close();
 			} );
 		},
+		addNode: function( node ) {
+			nodes.push( node );
+			nodeConnections = new Array( nodes.length );
+		},
 		getNode: function() {
-			var matches = _.find( managers, function( x ) { return x.state === 'connected' || x.state === 'connecting'; } );
+			var matches = _.find( managers, function( x ) {
+				return x.state === 'connected' || x.state === 'connecting';
+			} );
 			return matches.length ? matches[ 0 ].config : ( matches ? matches.config : undefined );
 		},
 		release: function( connection ) {

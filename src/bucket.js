@@ -1,10 +1,9 @@
-var	_ = require( 'lodash' );
-var	path = require( 'path' );
-var	when = require( 'when' );
-var	machina = require( 'machina' );
-var	IndexManager = require( './indexes.js' );
-var	SchemaManager = require( './schema.js' );
-var	debug = require( 'debug' )( 'riaktive:bucket' );
+var _ = require( 'lodash' );
+var when = require( 'when' );
+var machina = require( 'machina' );
+var IndexManager = require( './indexes.js' );
+var SchemaManager = require( './schema.js' );
+var debug = require( 'debug' )( 'riaktive:bucket' );
 var createBucket = require( './riak' ).createBucket;
 var schemas, index;
 
@@ -12,7 +11,7 @@ function diff( one, two ) {
 	var result = {};
 	_.each( two, function( value, key ) {
 		var orig = one[ key ];
-		if( orig !== value ) {
+		if ( orig !== value ) {
 			result[ key ] = value;
 		}
 	} );
@@ -23,12 +22,14 @@ function Bucket( bucket, options, riak ) {
 	schemas = schemas || new SchemaManager( riak );
 	index = index || new IndexManager( riak );
 	var bucketName = _.isArray( bucket ) ? _.filter( bucket ).join( '_' ) : bucket;
-	var defaults = { 
-			search_index: bucketName + '_index',
-			schema: 'riaktive_schema',
-			schemaPath: path.join( __dirname, 'default_solr.xml' ),
-			allow_mult: true 
-		};
+	var defaults = {
+		schema: undefined,
+		schemaPath: undefined,
+		'allow_mult': true
+	};
+	if ( options.schema ) {
+		defaults[ 'search_index' ] = bucketName + '_index'; // jshint ignore:line
+	}
 	var api = createBucket( riak, bucketName );
 	var alias = options.alias;
 	options = _.omit( options, 'alias' );
@@ -74,7 +75,7 @@ function Bucket( bucket, options, riak ) {
 				.then( function( props ) {
 					debug( 'Read props %s from bucket %s', JSON.stringify( props ), bucketName );
 					var difference = diff( props, _.omit( options, 'schema', 'schemaPath' ) );
-					if( _.keys( difference ).length > 0 ) {
+					if ( _.keys( difference ).length > 0 ) {
 						riak.setBucket( { bucket: bucketName, props: difference } )
 							.then( function() {
 								self.handle( 'bucket.asserted' );
@@ -109,11 +110,16 @@ function Bucket( bucket, options, riak ) {
 			},
 			checkingSchema: {
 				_onEnter: function() {
-					debug( 'Checking for schema', options.schema );
-					if( options.schema && options.schemaPath ) {
-						this._assertSchema( options.schema, options.schemaPath );
+					if ( options.schema ) {
+						debug( 'Checking for schema', options.schema );
+						if ( options.schema && options.schemaPath ) {
+							this._assertSchema( options.schema, options.schemaPath );
+						} else {
+							this.transition( 'checkingIndex' );
+						}
 					} else {
-						this.transition( 'checkingIndex' );
+						debug( 'No schema specified for bucket %s, skipping to create bucket', bucketName );
+						this.transition( 'creating' );
 					}
 				},
 				'schema.asserted': function() {
@@ -129,9 +135,10 @@ function Bucket( bucket, options, riak ) {
 			},
 			checkingIndex: {
 				_onEnter: function() {
-					if( options.search_index && options.schema ) {
+					if ( options.search_index && options.schema ) {
 						this._assertIndex( options.search_index, options.schema );
 					} else {
+						debug( 'Index or schema unspecified for bucket %s, skipping to create bucket', bucketName );
 						this.transition( 'creating' );
 					}
 				},
@@ -152,7 +159,7 @@ function Bucket( bucket, options, riak ) {
 					try {
 						api[ call.operation ].apply( undefined, call.argList )
 							.then( call.resolve, call.reject, call.notify );
-					} catch( err ) {
+					} catch (err) {
 						debug( 'Operation: %s failed with %s', JSON.stringify( call ), err );
 						call.reject( err );
 					}
@@ -164,7 +171,7 @@ function Bucket( bucket, options, riak ) {
 	var operations = [ 'del', 'get', 'getKeys', 'getByKeys', 'getKeysByIndex', 'getByIndex', 'mutate', 'put' ];
 	var machine = new Monad();
 	_.each( operations, function( name ) {
-		machine[ name ] = function() { 
+		machine[ name ] = function() {
 			var list = Array.prototype.slice.call( arguments, 0 );
 			return machine.operate( name, list );
 		}.bind( machine );

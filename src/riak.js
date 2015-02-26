@@ -1,20 +1,19 @@
-var	_ = require( 'lodash' );
-var	when = require( 'when' );
-var	debug = require( 'debug' )( 'riaktive:api' );
+var _ = require( 'lodash' );
+var when = require( 'when' );
+var debug = require( 'debug' )( 'riaktive:api' );
 
 function buildIndexQuery( bucketName, index, start, finish, limit, continuation ) {
-	if( _.isObject( index ) ) {
+	if ( _.isObject( index ) ) {
 		start = start || index.start;
 		finish = finish || index.finish;
 		limit = limit || index.limit || index.max_results;
 		continuation = continuation || index.continuation;
 		index = index.index;
 	}
-	if( index === '$key' || index === '$bucket' ) {
-		// do nothing
-	}
-	else if( !/[_](bin|int)$/.test( index ) ) {
-		if( _.isNumber( start ) ) {
+	if ( index === '$key' || index === '$bucket' ) {
+		void 0; // esformatter trashes the entire file w/o this b/c empty blocks
+	} else if ( !/[_](bin|int)$/.test( index ) ) {
+		if ( _.isNumber( start ) ) {
 			index = index + '_int';
 		} else {
 			index = index + '_bin';
@@ -26,7 +25,7 @@ function buildIndexQuery( bucketName, index, start, finish, limit, continuation 
 		index: index
 	};
 
-	if( finish ) {
+	if ( finish ) {
 		query.qtype = 1;
 		query.range_min = start;
 		query.range_max = finish;
@@ -35,11 +34,11 @@ function buildIndexQuery( bucketName, index, start, finish, limit, continuation 
 		query.key = start;
 	}
 
-	if( limit ) {
+	if ( limit ) {
 		query.max_results = limit;
 	}
 
-	if( continuation ) {
+	if ( continuation ) {
 		query.continuation = continuation;
 	}
 	return query;
@@ -50,7 +49,7 @@ function buildPut( bucketName, key, obj, indexes, original ) {
 	var request = {
 		bucket: bucketName,
 		key: key,
-		return_body: true,
+		'return_body': true,
 		content: content( obj, indices ),
 		vclock: original.vclock || obj.vclock
 	};
@@ -59,16 +58,16 @@ function buildPut( bucketName, key, obj, indexes, original ) {
 }
 
 function content( obj, indexes ) { // jshint ignore:line
-	delete obj._indexes;
-	var tmp = { 'content_type': 'application/json', value: JSON.stringify( obj ) };
-	if( indexes ) {
+	// delete obj._indexes;
+	var tmp = { 'content_type': 'application/json', value: JSON.stringify( _.omit( obj, '_indexes' ) ) };
+	if ( indexes ) {
 		tmp.indexes = indexes;
 	}
 	return tmp;
 }
 
 function del( riak, bucketName, key ) {
-	if( _.isArray( key ) ) {
+	if ( _.isArray( key ) ) {
 		throw new Error( 'Multi-delete isn\'t supported' );
 	} else if ( _.isObject( key ) && key.id ) {
 		key = key.id;
@@ -94,7 +93,7 @@ function get( riak, bucketName, key, includeDeleted ) {
 		.then( function( reply ) {
 			debug( 'Get %s in %s returned %s (raw)', key, bucketName, JSON.stringify( reply ) );
 			var docs = scrubDocs( reply, includeDeleted );
-			if( _.isEmpty( docs ) ) {
+			if ( _.isEmpty( docs ) ) {
 				return undefined;
 			} else if ( docs.length === 1 ) {
 				return docs[ 0 ];
@@ -141,7 +140,7 @@ function getByIndex( riak, bucketName, index, start, finish, limit, continuation
 				when.all( promises ).then( function() {
 					resolve( next );
 				} );
-			} );		
+			} );
 	} );
 }
 
@@ -154,39 +153,49 @@ function getKeysByIndex( riak, bucketName, index, start, finish, limit, continua
 	var newContinuation;
 	debug( 'Requesting keys for %s', JSON.stringify( query ) );
 	return riak.getIndex( query )
-			.then( function() {
-				if( newContinuation ) {
-					query.continuation = newContinuation;
+		.then( function() {
+			if ( newContinuation ) {
+				query.continuation = newContinuation;
+			}
+			return query;
+		} )
+		.progress( function( data ) {
+			if ( data ) {
+				if ( data.continuation ) {
+					newContinuation = data.continuation;
 				}
-				return query;
-			} )
-			.progress( function( data ) {
-				if( data ) {
-					if( data.continuation ) {
-						newContinuation = data.continuation;
-					}
-				}
-				return data ? data.keys : [];
-			} );
+			}
+			return data ? data.keys : [];
+		} );
 }
 
 function includeDeleted( flag ) { // jshint ignore:line
-	return function( doc ) { return flag ? true : !doc.deleted; };
+	return function( doc ) {
+		return flag ? true : !doc.deleted;
+	};
 }
 
 function mutate( riak, bucketName, key, mutateFn ) {
 	return get( riak, bucketName, key )
 		.then( null, function() {
-			throw new Error( 'Cannot mutate - no document with key "' +  key + '" in bucket "' + bucketName + '"' );
+			throw new Error( 'Cannot mutate - no document with key "' + key + '" in bucket "' + bucketName + '"' );
 		} )
-		.then( function( mutandis ) {
-			if( _.isArray( mutandis) ) {
+		.then( function( original ) {
+			if ( _.isArray( original ) ) {
 				throw new Error( 'Cannot mutate - siblings exist for key "' + key + '" in bucket "' + bucketName + '"' );
 			} else {
-				var mutatis = mutateFn( mutandis );
-				mutatis.vclock = mutandis.vclock;
-				debug( 'mutated to %s', JSON.stringify( mutatis ) );
-				return put( riak, bucketName, key, mutatis );
+				var mutatis = mutateFn( _.cloneDeep( original ) );
+				if ( _.isEqual( _.omit( mutatis, 'vtag', 'vclock' ), _.omit( original, 'vtag', 'vclock' ) ) ) {
+					debug( 'no changes to document %s in bucket %s', key, bucketName );
+					return false;
+				} else {
+					mutatis.vclock = original.vclock;
+					debug( 'mutated to %s', JSON.stringify( mutatis ) );
+					return put( riak, bucketName, key, mutatis )
+						.then( function() {
+							return mutatis;
+						} );
+				}
 			}
 		} )
 		.then( null, function( err ) {
@@ -199,18 +208,18 @@ function mutate( riak, bucketName, key, mutateFn ) {
 
 function parseIndexes( doc, obj ) { // jshint ignore:line
 	var collection = {};
-	if( obj.indexes && !doc._indexes ) {
+	if ( obj.indexes && !doc._indexes ) {
 		_.each( obj.indexes, function( index ) {
 			var key = index.key.replace( '_int', '' ).replace( '_bin', '' );
-			if( /_int$/.test( index.key ) ) {
-				
-				if( collection[ key ] ) {
+			if ( /_int$/.test( index.key ) ) {
+
+				if ( collection[ key ] ) {
 					collection[ key ] = _.flatten( [ collection[ key ], parseInt( index.value ) ] );
 				} else {
-					collection[ key ] = parseInt( index.value );	
+					collection[ key ] = parseInt( index.value );
 				}
 			} else {
-				if( collection[ key ] ) {
+				if ( collection[ key ] ) {
 					collection[ key ] = _.flatten( [ collection[ key ], index.value ] );
 				} else {
 					collection[ key ] = index.value;
@@ -226,12 +235,11 @@ function processIndexes( list ) { // jshint ignore:line
 		var isArray = _.isArray( val );
 		var sample = isArray ? val[ 0 ] : val;
 		var vals = isArray ? val : [ val ];
-		if( /[_](bin|int)$/.test( key ) ) {
-			return _.map( vals, function( x ) { 
-				return { key: key, value: x }; 
+		if ( /[_](bin|int)$/.test( key ) ) {
+			return _.map( vals, function( x ) {
+				return { key: key, value: x };
 			} );
-		}
-		else if( _.isNumber( sample ) ) {
+		} else if ( _.isNumber( sample ) ) {
 			return _.map( vals, function( x ) {
 				return { key: key + '_int', value: x };
 			} );
@@ -244,24 +252,24 @@ function processIndexes( list ) { // jshint ignore:line
 }
 
 function put( riak, bucketName, key, obj, indexes, getBeforePut ) { // jshint ignore:line
-	if( !obj || _.isObject( key ) ) {
-		if( indexes ) {
+	if ( !obj || _.isObject( key ) ) {
+		if ( indexes ) {
 			getBeforePut = indexes;
 		}
-		if( obj ) {
+		if ( obj ) {
 			indexes = processIndexes( obj );
 		}
 		obj = key;
 		key = obj.id || riak.ids.getId();
-	} else if( indexes ) {
+	} else if ( indexes ) {
 		indexes = processIndexes( indexes );
 	}
-	if( _.isEmpty( indexes ) && obj._indexes ) {
+	if ( _.isEmpty( indexes ) && obj._indexes ) {
 		indexes = processIndexes( obj._indexes );
 	}
 	obj.id = obj.id || key;
-	
-	var getOriginal = function() { 
+
+	var getOriginal = function() {
 		var vclock = obj.vclock;
 		delete obj.vclock;
 		return when( {
@@ -270,13 +278,13 @@ function put( riak, bucketName, key, obj, indexes, getBeforePut ) { // jshint ig
 		} );
 	};
 
-	if( !obj.vclock && getBeforePut ) {
-		getOriginal = function( ) {
-			return get( riak, bucketName, key  )
+	if ( !obj.vclock && getBeforePut ) {
+		getOriginal = function() {
+			return get( riak, bucketName, key )
 				.then( function( result ) {
 					return _.isArray( result ) ? result[ 0 ] : result;
 				} );
-			};
+		};
 	}
 
 	var request = when.try( buildPut, bucketName, key, obj, indexes, getOriginal() );
@@ -294,7 +302,7 @@ function readBucket( riak, bucketName ) {
 			debug( 'Failed to read bucket properties for %s with %s', bucketName, err.stack );
 			return {};
 		} )
-		.then( function ( bucket ) {
+		.then( function( bucket ) {
 			debug( 'Read bucket properties for %s: %s', bucketName, bucket.props || {} );
 			return bucket.props || {};
 		} );

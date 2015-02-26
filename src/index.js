@@ -2,7 +2,7 @@ var _ = require( 'lodash' );
 var when = require( 'when' );
 var nodeWhen = require( 'when/node' );
 var riakpbc = require( 'riakpbc' );
-var RiakConnection = require( 'riakpbc/lib/connection');
+var RiakConnection = require( 'riakpbc/lib/connection' );
 var createBucket = require( './bucket.js' );
 var solr = require( './search.js' );
 var uuid = require( 'node-uuid' );
@@ -36,7 +36,7 @@ function connect( options ) {
 		http: 8098,
 		connectTimeout: 2000
 	};
-	
+
 	var client = riakpbc.createClient( {
 		nodes: [],
 		connectTimeout: options.timeout
@@ -53,7 +53,7 @@ function connect( options ) {
 		return when.promise( function( resolve, reject ) {
 			var conn = new RiakConnection( node );
 			conn.connect( function( err ) {
-				if( err ) {
+				if ( err ) {
 					reject( err );
 				} else {
 					resolve( conn );
@@ -71,7 +71,7 @@ function lift( client, nodeId ) { // jshint ignore:line
 		bucket: function( bucketName, options ) {
 			var bucket = createBucket( bucketName, options || {}, this, nodeId );
 			this[ bucket.name ] = bucket;
-			if( bucket.alias ) {
+			if ( bucket.alias ) {
 				this[ bucket.alias ] = bucket;
 			}
 			return bucket;
@@ -79,7 +79,7 @@ function lift( client, nodeId ) { // jshint ignore:line
 		index: function( indexName, alias ) {
 			var index = solr( this, indexName );
 			this[ indexName ] = index;
-			if( alias ) {
+			if ( alias ) {
 				this[ alias ] = index;
 			}
 			return index;
@@ -90,6 +90,7 @@ function lift( client, nodeId ) { // jshint ignore:line
 		getNode: function() {
 			return client.pool.getNode();
 		},
+		pool: client.pool,
 		reset: function() {
 			client.pool.restart();
 		},
@@ -121,16 +122,16 @@ function lift( client, nodeId ) { // jshint ignore:line
 		connect: nodeWhen.lift( client.connect ).bind( client ),
 		disconnect: nodeWhen.lift( client.disconnect ).bind( client ),
 		getBucket: safeLift( client.getBucket.bind( client ) ),
-		getKeys: function ( params ) {
-			return when.promise( function ( resolve, reject, progress ) {
+		getKeys: function( params ) {
+			return when.promise( function( resolve, reject, progress ) {
 				var stream = client.getKeys( params );
 				stream.on( 'data', progress );
 				stream.on( 'error', reject );
 				stream.on( 'end', resolve );
 			} );
 		},
-		getIndex: function ( params ) {
-			return when.promise( function ( resolve, reject, progress ) {
+		getIndex: function( params ) {
+			return when.promise( function( resolve, reject, progress ) {
 				var stream = client.getIndex( params );
 				stream.on( 'data', progress );
 				stream.on( 'error', reject );
@@ -143,9 +144,9 @@ function lift( client, nodeId ) { // jshint ignore:line
 
 // for cases when a simple when lift won't do
 function safeLift( fn ) { // jshint ignore:line
-	return function ( params ) {
-		return when.promise( function ( resolve ) {
-			fn( params, function ( err, result ) {
+	return function( params ) {
+		return when.promise( function( resolve ) {
+			fn( params, function( err, result ) {
 				if ( err ) {
 					resolve( {} );
 				} else {

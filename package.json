@@ -1,6 +1,6 @@
 {
   "name": "riaktive",
-  "version": "0.1.0-7",
+  "version": "0.1.0-8",
   "description": "A Riak API abstraction built on riakpbc that aims for simplicity.",
   "main": "src/index.js",
   "scripts": {
@@ -9,7 +9,7 @@
   "author": "Alex Robson",
   "license": "MIT License - http://opensource.org/licenses/MIT",
   "dependencies": {
-    "configya": "~0.0.6",
+    "configya": "~0.2.0",
     "debug": "^1.0.4",
     "lodash": "~2.4.1",
     "machina": "^0.4.0-1",
@@ -21,9 +21,12 @@
     "when": "~3.0.0"
   },
   "devDependencies": {
-    "configya": "0.0.9",
+    "biggulp": "0.0.2",
+    "chai": "^2.1.0",
+    "chai-as-promised": "^4.2.0",
+    "configya": "~0.2.0",
     "gulp": "~3.8.7",
     "gulp-mocha": "^0.5.2",
-    "should": "~3.2.0-beta1"
+    "sinon": "^1.12.2"
   }
 }

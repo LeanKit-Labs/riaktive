@@ -2,9 +2,9 @@
 A Riak API abstraction built on riakpbc that aims for simplicity.
 
 ## Rationale
-While I really like how clean and well designed the riakpbc Node library is, using it requires detailed knowledge of Riak's rather sophisticated API. It also expects that you'll manage the connection and any setup in your consuming code. This doesn't seem like the sort of thing that should be hanging around in applications.
+I like the riakpbc Node library is but using it requires detailed knowledge of Riak's sophisticated API. Our intention with riaktive is to provide a simple set of abstractions for the most common use cases.
 
-I also hope that putting a simpler API out there will encourage folks to give Riak a try.
+Hopefully this library will encourage folks to give Riak a try.
 
 ## Features
 
@@ -22,7 +22,6 @@ I also hope that putting a simpler API out there will encourage folks to give Ri
  * levelDB storage backend
  * pbc interface support only
  * allow siblings (allow_mult = true)
- * default SOLR schema
 
 ### levelDB
 levelDB is currently the best way I know to solve for certain common data access patterns (like paging). Depending on how you're using the secondary indexes, it's possible you could see some small performance hits. Give how fast Riak is, my guess is that other areas of your app will be bottlenecks long before Riak is.
@@ -30,16 +29,14 @@ levelDB is currently the best way I know to solve for certain common data access
 ### Allow Siblings
 This library defaults buckets to `allow_mult=true` on creation. While you could change this, you should not play last-write-wins roulette :)
 
-### Default Schema
-If you don't specify a schema file, riaktive will provide one with the closest thing to sensible defaults that we've found to work to date. YMMV - if you know you want to use something different, provide your own schema file.
-
 ## Quick Start
 
 ```javascript
 var riaktive = require( 'riaktive' );
 
 var riak = riaktive.connect(); // defaults to 127.0.0.1 at port 8087 with http port at 8098 for Solr queries
-var bucket = riak.bucket( 'mahbucket' ); // creates a bucket with default options
+// creates a bucket with custom schema - index name defaults to bucketName_index
+var bucket = riak.bucket( 'mahbucket', { schema: 'cat_schema', schemaPath: './spec/solr_cat.xml' } );
 
 var doc = {
 	name: 'kitteh',
@@ -91,7 +88,7 @@ In addition to node definitions, you can provide `wait`, `retries` and `failed` 
 
 ### single node example - uses default wait and retries
 ```javascript
-var riak = riaktive.connect( { 
+var riak = riaktive.connect( {
 	host: 'localhost', // default host address
 	port: 8097, // default PBC port
 	http: 8098 // default HTTP port (for Solr requests),
@@ -115,7 +112,7 @@ var riak = riaktive.connect( [
 ### full configuration
 ```javascript
 var riak = riaktive.connect( {
-	nodes: [ 
+	nodes: [
 		{ host: 'riak-node1' },
 		{ host: 'riak-node2' },
 		{ host: 'riak-node3' },
@@ -130,7 +127,7 @@ var riak = riaktive.connect( {
 
 ### Command deferral
 All commands are delayed until:
- 
+
  1. A connection exists
  1. Any schema file and bucket index have been created
  1. The bucket settings have been set
@@ -140,7 +137,7 @@ Since all commands return a promise, you don't have to take any additional steps
 In the event that no connection is ever established, the promises will all be rejected.
 
 ### Reconnection limit
-Once the attempts to connect to a node have failed a consecutive number of times beyond the retries limit, the node will be marked as unreachable and taken out of the connection pool rotation. 
+Once the attempts to connect to a node have failed a consecutive number of times beyond the retries limit, the node will be marked as unreachable and taken out of the connection pool rotation.
 
 When retries have been exhausted across all nodes, any outstanding promises for API calls will be rejected and the `failed` callback (if provided) will get called.
 
@@ -184,13 +181,13 @@ Puts a new document either by specific `key` arg, `id` property or a generated f
 
 ```javascript
 var docA = {
-	...	
+	...
 };
 var docB = {
 	id: 'natural key'
 };
 var indexes = {
-	indexOne: 1, 
+	indexOne: 1,
 	indexTwo: 'two'
 }
 
@@ -210,7 +207,7 @@ riak.bucketName.put( docB )
 ### mutate( key, mutateFn )
 Mutate exists only to support cases when you need to read a document, make a change to it and save it back to Riak without creating a sibling by accident.
 
-The mutate function will be passed the document and is expected to return the changed document.
+The mutate function will be passed the document and is expected to return the changed document. Mutate will only save the document if changes are actually made and the resulting promise will resolve to `true` if a change occurred.
 
 ```javascript
 riak.bucketName.mutate( 'someKey', function( doc ) {
@@ -278,12 +275,10 @@ When defining a bucket, the search schema is defined with the following properti
 
 Riaktive will check for an existing schema with contents matching the file at `schemaPath` and create the schema if it's missing.
 
-As mentioned before, riaktive provides a default schema file that it uploads to Riak named 'riaktive_schema'.
-
 ### Index
 An index is associated with a bucket by the `search_index` property. If a `schema` property is also included, riaktive will create or update the index if a match with the same schema name doesn't exist.
 
-If you don't specify an index, riaktive will create one named after the bucket with the suffix `_index` that uses the 'riaktive_schema' mentioned earlier.
+If you don't specify an index name but provide a schema, riaktive will create one named after the bucket with the suffix '_index' that uses the 'riaktive_schema' mentioned earlier.
 
 ### Searching
 You can easily search an existing Solr index using the JSON representation of Solr queries.
@@ -298,6 +293,8 @@ myBucketIndex.search( { name: 'Waldo } )
 ```
 
 ## Roadmap
+ * Provide strategies to control concurrent changes to documents (to better control sibling creation)
+ * Automatically track a list of buckets created in a Riak bucket and provide a simple call to fetch them
  * Spin up multiple connections per node in the connection pool when demand exceeds available connections
  * Decrease the number of connections per node in the connection pool if demand decreases
 

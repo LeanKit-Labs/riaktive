@@ -1,34 +1,31 @@
-var should = require( 'should' ); // jshint ignore:line
+require( '../setup.js' );
 var seq = require( 'when/sequence' );
-var connect = require( '../src/index.js' ).connect;
-var config = require( 'configya' )( './config.json', { riak: { server: 'ubuntu' } } );
+var connect = require( '../../src/index.js' ).connect;
+var config = require( 'configya' )( { file: './spec/config.json' } );
 
-describe( 'with connection to solr and an indexed bucket', function () {
+describe( 'with connection to solr and an indexed bucket', function() {
 	var riak, bucket, index;
 
-	describe( 'with nested documents', function () {
+	describe( 'with nested documents', function() {
 		var list = [];
 		before( function( done ) {
 			this.timeout( 60000 );
 			riak = connect( { host: config.riak.server } );
-			bucket = riak.bucket( 'testBucket1', { search_index: 'testBucket_index', schema: 'riaktive_schema' } );
+			bucket = riak.bucket( 'testBucket1', { 'search_index': 'testBucket_index', schema: 'riaktive_schema', schemaPath: './spec/test_solr.xml' } );
 			index = riak.index( 'testBucket_index' );
-			seq( [
-				function() { 
-					return bucket.put( { 
-						id: 'one', 
-						name: 'Alex', 
-						children: [ { name: 'Dexter' } ] 
+			seq( [ function() {
+					return bucket.put( {
+						id: 'one',
+						name: 'Alex',
+						children: [ { name: 'Dexter' } ]
 					} );
-				},
-				function() {
-					bucket.put( { 
-						id: 'two', 
-						name: 'Ian', 
-						children: [ { name: 'Ty' }, { name: 'Michah' }, { name: 'Averie' } ] 
+				}, function() {
+					bucket.put( {
+						id: 'two',
+						name: 'Ian',
+						children: [ { name: 'Ty' }, { name: 'Michah' }, { name: 'Averie' } ]
 					} );
-				},
-				function() {
+				}, function() {
 					setTimeout( function() {
 						index.search( { 'children.name': 'averie' } )
 							.progress( function( item ) {
@@ -49,13 +46,15 @@ describe( 'with connection to solr and an indexed bucket', function () {
 		} );
 
 		after( function( done ) {
-			seq( [
-					function() { return bucket.del( 'one' ); },
-					function() { return bucket.del( 'two' ); }
-				] )
-			.then( function() {
-				done();
-			} );
+			seq( [ function() {
+					return bucket.del( 'one' );
+				}, function() {
+					return bucket.del( 'two' );
+				}
+			] )
+				.then( function() {
+					done();
+				} );
 		} );
 	} );
 
@@ -64,14 +63,12 @@ describe( 'with connection to solr and an indexed bucket', function () {
 		before( function( done ) {
 			this.timeout( 10000 );
 			bucket.put( { id: 'four', name: 'Alex' } );
-			bucket.put( { id: 'five', name: 'Ian'  } );
+			bucket.put( { id: 'five', name: 'Ian' } );
 			bucket.put( { id: 'six', name: 'Becca' } );
 
 			setTimeout( function() {
-				index.search( { 'name': '*' }, { start:1, rows:2 }, true )
-					.progress( function( /* item */ ) {
-						
-					} )
+				index.search( { 'name': '*' }, { start: 1, rows: 2 }, true )
+					.progress( function( /* item */ ) {} )
 					.then( null, function( /* err */ ) {
 						done();
 					} )
@@ -94,25 +91,28 @@ describe( 'with connection to solr and an indexed bucket', function () {
 
 		it( 'should show correct start', function() {
 			result.start.should.equal( 1 );
-		});
+		} );
 
 		it( 'should show query max score', function() {
 			result.maxScore.should.ok; //jshint ignore:line
-		});
+		} );
 
 		it( 'should show query duration', function() {
 			result.qTime.should.be.ok; //jshint ignore:line
-		});
-	
+		} );
+
 		after( function( done ) {
-			seq( [
-					function() { return bucket.del( 'four' ); },
-					function() { return bucket.del( 'five' ); },
-					function() { return bucket.del( 'six' ); }
-				] )
-			.then( function() {
-				done(); 
-			} );
+			seq( [ function() {
+					return bucket.del( 'four' );
+				}, function() {
+					return bucket.del( 'five' );
+				}, function() {
+					return bucket.del( 'six' );
+				}
+			] )
+				.then( function() {
+					done();
+				} );
 		} );
 	} );
 
@@ -120,12 +120,12 @@ describe( 'with connection to solr and an indexed bucket', function () {
 		var result;
 		before( function( done ) {
 			this.timeout( 5000 );
-			bucket.put( { id: 'seven', name: 'Fred', age:23 } );
-			bucket.put( { id: 'eight', name: 'Sally', age:35  } );
-			bucket.put( { id: 'nine', name: 'Becca', age:35 } );
+			bucket.put( { id: 'seven', name: 'Fred', age: 23 } );
+			bucket.put( { id: 'eight', name: 'Sally', age: 35 } );
+			bucket.put( { id: 'nine', name: 'Becca', age: 35 } );
 
 			setTimeout( function() {
-				index.search( { 'name': '*' }, { sort: { age:'desc' } }, true )
+				index.search( { 'name': '*' }, { sort: { age: 'desc' } }, true )
 					.then( null, function( /* err */ ) {
 						done();
 					} )
@@ -141,16 +141,19 @@ describe( 'with connection to solr and an indexed bucket', function () {
 			var match = result.docs[ 2 ];
 			match.name.should.equal( 'Fred' );
 		} );
-	
+
 		after( function( done ) {
-			seq( [
-					function() { return bucket.del( 'seven' ); },
-					function() { return bucket.del( 'eight' ); },
-					function() { return bucket.del( 'nine' ); }
-				] )
-			.then( function() {
-				done(); 
-			} );
+			seq( [ function() {
+					return bucket.del( 'seven' );
+				}, function() {
+					return bucket.del( 'eight' );
+				}, function() {
+					return bucket.del( 'nine' );
+				}
+			] )
+				.then( function() {
+					done();
+				} );
 		} );
 	} );
 
@@ -164,14 +167,14 @@ describe( 'with connection to solr and an indexed bucket', function () {
 					done();
 				} )
 				.done( function( res ) {
-					if( res ) {
+					if ( res ) {
 						done();
 					}
 				} );
-		});
-		
+		} );
+
 		it( 'should return solrError message', function() {
 			error.name.should.equal( 'SolrError' );
-		});
+		} );
 	} );
 } );
