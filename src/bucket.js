@@ -4,7 +4,6 @@ var machina = require( 'machina' );
 var IndexManager = require( './indexes.js' );
 var SchemaManager = require( './schema.js' );
 var debug = require( 'debug' )( 'riaktive:bucket' );
-var createBucket = require( './riak' ).createBucket;
 var schemas, index;
 
 function diff( one, two ) {
@@ -18,7 +17,7 @@ function diff( one, two ) {
 	return result;
 }
 
-function Bucket( bucket, options, riak ) {
+function Bucket( bucket, options, riak, createBucket ) {
 	schemas = schemas || new SchemaManager( riak );
 	index = index || new IndexManager( riak );
 	var bucketName = _.isArray( bucket ) ? _.filter( bucket ).join( '_' ) : bucket;
@@ -159,7 +158,7 @@ function Bucket( bucket, options, riak ) {
 					try {
 						api[ call.operation ].apply( undefined, call.argList )
 							.then( call.resolve, call.reject, call.notify );
-					} catch (err) {
+					} catch ( err ) {
 						debug( 'Operation: %s failed with %s', JSON.stringify( call ), err );
 						call.reject( err );
 					}

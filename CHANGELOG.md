@@ -1,5 +1,8 @@
 ## 0.1.*
 
+### prerelease 9
+Fix bug where calling bucket or index multiple times would declare the bucket/index every time.
+
 ### prerelease 8
 
  * Removed default schema
