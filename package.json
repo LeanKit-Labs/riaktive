@@ -8,6 +8,12 @@
   },
   "author": "Alex Robson",
   "license": "MIT License - http://opensource.org/licenses/MIT",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "keywords": [
+    "riak"
+  ],
   "dependencies": {
     "configya": "~0.2.0",
     "debug": "^1.0.4",
