@@ -58,7 +58,6 @@ function buildPut( bucketName, key, obj, indexes, original ) {
 }
 
 function content( obj, indexes ) { // jshint ignore:line
-	// delete obj._indexes;
 	var tmp = { 'content_type': 'application/json', value: JSON.stringify( _.omit( obj, '_indexes' ) ) };
 	if ( indexes ) {
 		tmp.indexes = indexes;
