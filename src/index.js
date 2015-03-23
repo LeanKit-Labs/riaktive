@@ -4,6 +4,7 @@ var nodeWhen = require( 'when/node' );
 var riakpbc = require( 'riakpbc' );
 var RiakConnection = require( 'riakpbc/lib/connection' );
 var createBucket = require( './bucket.js' );
+var api = require( './riak.js' );
 var solr = require( './search.js' );
 var uuid = require( 'node-uuid' );
 var pool = require( './pool.js' );
@@ -69,16 +70,22 @@ function connect( options ) {
 function lift( client, nodeId ) { // jshint ignore:line
 	var lifted = {
 		bucket: function( bucketName, options ) {
-			var bucket = createBucket( bucketName, options || {}, this, nodeId );
-			this[ bucket.name ] = bucket;
+			var bucket = this[ bucketName ];
+			if ( !bucket ) {
+				bucket = createBucket( bucketName, options || {}, this, api.createBucket, nodeId );
+				this[ bucket.name ] = bucket;
+			}
 			if ( bucket.alias ) {
 				this[ bucket.alias ] = bucket;
 			}
 			return bucket;
 		},
 		index: function( indexName, alias ) {
-			var index = solr( this, indexName );
-			this[ indexName ] = index;
+			var index = this[ indexName ];
+			if ( !index ) {
+				index = solr( this, indexName );
+				this[ indexName ] = index;
+			}
 			if ( alias ) {
 				this[ alias ] = index;
 			}
