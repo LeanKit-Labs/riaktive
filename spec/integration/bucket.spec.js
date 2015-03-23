@@ -1,17 +1,16 @@
+require( '../setup.js' );
 var _ = require( 'lodash' );
-var should = require( 'should' ); // jshint ignore:line
 var seq = require( 'when/sequence' );
-var connect = require( '../src/index.js' ).connect;
-var config = require( 'configya' )( './config.json', { riak: { server: 'ubuntu' } } );
+var connect = require( '../../src/index.js' ).connect;
+var config = require( 'configya' )( { file: './spec/config.json' } );
 
-describe( 'when creating a bucket', function() {
-	var riak, props, fetched, mutated, siblings, resolved, tmp,
+describe( 'Bucket Operations', function() {
+	var riak, props, fetched, mutated, unchanged, siblings, resolved, tmp,
 		keys = [],
 		list1 = [],
 		list2 = [];
 
 	before( function( done ) {
-		this.timeout( 20000 );
 		riak = connect( { host: config.riak.server } );
 		var bucket = riak.bucket( [ 'mah', 'bucket' ], { alias: 'mahBucket' } );
 		// here is a descriptions of the steps this sequence takes
@@ -30,74 +29,81 @@ describe( 'when creating a bucket', function() {
 		// 13. resolve divergence with the latter sibling
 		// 14. get 'test-key-3' to verify single document
 		// 15 - 17. delete the keys created as part of this sequence
-		seq( [
-				function() { return riak.getBucket( { bucket: 'mah_bucket' } ); },
-				function() { return riak.mahBucket.put( 'test-key-1', { message: 'hulloo', aList: [ 'a', 'b', 'c' ] }, { lookup: 10 } ); },
-				function() { return riak.mahBucket.get( 'test-key-1' ); },
-				function() { return bucket.mutate( 'test-key-1', function( doc ) {
+		seq( [ function() {
+				return riak.getBucket( { bucket: 'mah_bucket' } );
+			}, function() {
+				return riak.mahBucket.put( 'test-key-1', { message: 'hulloo', aList: [ 'a', 'b', 'c' ] }, { lookup: 10 } );
+			}, function() {
+				return riak.mahBucket.get( 'test-key-1' );
+			}, function() {
+				return bucket.mutate( 'test-key-1', function( doc ) {
 					doc.subject = 'greeting';
 					doc._indexes.lookup = [ 10, 40 ];
 					return doc;
-				} ); },
-				function() { return bucket.get( 'test-key-1' ); },
-				function() { return bucket.put( 'test-key-2', { message: 'hulloo to you too' }, { lookup: 11 } ); },
-				function() { 
-					return bucket.getKeysByIndex( 'lookup', 1, 20 )
-						.progress( function( data ) {
-							keys = data.concat( keys );
-						} );
-				},
-				function() {
-					return bucket.getByKeys( keys )
-						.progress( function( record ) {
-							list1.push( record );
-						} );
-				},
-				function() {
-					return bucket.getByIndex( 'lookup', 1, 20 )
-						.progress( function( record ) {
-							list2.push( record );
-						} );
-				},
-				function() {
-					return bucket.put( 'test-key-3', { answer: 'nope' } );
-				},
-				function() {
-					return bucket.put( 'test-key-3', { answer: 'yarp' } );
-				},
-				function() {
-					return bucket.get( 'test-key-3' )
-						.then( function( doc ) {
-							tmp = doc;
-							return doc;
-						} );
-				},
-				function() { return bucket.put( 'test-key-3', tmp[ 1 ] ); },
-				function() { return bucket.get( 'test-key-3' ); },
-				function() { return bucket.del( 'test-key-1' ); },
-				function() { return bucket.del( 'test-key-2' ); },
-				function() { return bucket.del( 'test-key-3' ); }
-			] )
-		.then( function( results ) {
-			props = results[ 0 ].props;
-			fetched = results[ 2 ];
-			mutated = results[ 4 ];
-			siblings = results[ 11 ];
-			resolved = results[ 13 ];
-			done();
-		} )
-		.then( null, function( err ) {
-			console.log( 'failed with', err, err.stack );
-			done();
-		} )
-		.catch( function( err ) {
-			console.log( 'errored with', err, err.stack );
-			done();
-		} );
+				} );
+			}, function() {
+				return bucket.mutate( 'test-key-1', function( doc ) {
+					doc.subject = 'greeting';
+					return doc;
+				} );
+			}, function() {
+				return bucket.get( 'test-key-1' );
+			}, function() {
+				return bucket.put( 'test-key-2', { message: 'hulloo to you too' }, { lookup: 11 } );
+			}, function() {
+				return bucket.getKeysByIndex( 'lookup', 1, 20 )
+					.progress( function( data ) {
+						keys = data.concat( keys );
+					} );
+			}, function() {
+				return bucket.getByKeys( keys )
+					.progress( function( record ) {
+						list1.push( record );
+					} );
+			}, function() {
+				return bucket.getByIndex( 'lookup', 1, 20 )
+					.progress( function( record ) {
+						list2.push( record );
+					} );
+			}, function() {
+				return bucket.put( 'test-key-3', { answer: 'nope' } );
+			}, function() {
+				return bucket.put( 'test-key-3', { answer: 'yarp' } );
+			}, function() {
+				return bucket.get( 'test-key-3' )
+					.then( function( doc ) {
+						tmp = doc;
+						return doc;
+					} );
+			}, function() {
+				return bucket.put( 'test-key-3', tmp[ 1 ] );
+			}, function() {
+				return bucket.get( 'test-key-3' );
+			}, function() {
+				return bucket.del( 'test-key-1' );
+			}, function() {
+				return bucket.del( 'test-key-2' );
+			}, function() {
+				return bucket.del( 'test-key-3' );
+			}
+		] )
+			.then( function( results ) {
+				props = results[ 0 ].props;
+				fetched = results[ 2 ];
+				mutated = results[ 3 ];
+				unchanged = results[ 4 ];
+				siblings = results[ 12 ];
+				resolved = results[ 14 ];
+				done();
+			} )
+			.catch( function( err ) {
+				console.log( 'failed with', err );
+				done();
+			} );
 	} );
 
 	it( 'should create valid bucket properties', function() {
-		props.search_index.should.equal( 'mah_bucket_index' );
+		expect( props.search_index ).to.be.undefined;
 		props.allow_mult.should.be.true; //jshint ignore:line
 	} );
 
@@ -120,6 +126,10 @@ describe( 'when creating a bucket', function() {
 
 	it( 'should correctly parse mutated indexes', function() {
 		mutated._indexes.lookup.should.eql( [ 10, 40 ] );
+	} );
+
+	it( 'should not persist unchanged document', function() {
+		unchanged.should.be.false;
 	} );
 
 	it( 'should get key by index', function() {
@@ -148,5 +158,4 @@ describe( 'when creating a bucket', function() {
 	after( function() {
 		riak.close();
 	} );
-
 } );

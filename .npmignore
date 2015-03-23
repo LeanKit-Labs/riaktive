@@ -2,3 +2,4 @@ demo/
 tmp/
 spec/
 node_modules/
+coverage/

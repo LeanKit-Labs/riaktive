@@ -10,13 +10,13 @@ function connectionManager( index, config, factory, limit, wait ) {
 			this.consecutiveFailures = 0;
 		},
 		_attachHandlers: function() {
-			if( this.connection && this.connection.client ) {
+			if ( this.connection && this.connection.client ) {
 				this.connection.client.on( 'end', this._onEnd.bind( this ) );
 				this.connection.client.on( 'error', this._onError.bind( this ) );
 			}
 		},
 		_detachHandlers: function() {
-			if( this.connection && this.connection.client ) {
+			if ( this.connection && this.connection.client ) {
 				this.connection.client.removeListener( 'end', this._onEnd );
 				this.connection.client.removeListener( 'error', this._onError );
 			}
@@ -77,11 +77,11 @@ function connectionManager( index, config, factory, limit, wait ) {
 			disconnected: {
 				_onEnter: function() {
 					this.emit( 'disconnected', this );
-					this.consecutiveFailures ++;
-					if( this.consecutiveFailures <= ( limit || 5 ) ) {
+					this.consecutiveFailures++;
+					if ( this.consecutiveFailures <= ( limit || 5 ) ) {
 						debug( 'Will attempt to reconnect to %s:%s after %d ms', config.host, config.port, ( wait || 5000 ) );
 						this.timeout = setTimeout( function() {
-							if( this.state !== 'shutdown' && this.state !== 'closed' ) {
+							if ( this.state !== 'shutdown' && this.state !== 'closed' ) {
 								this.transition( 'connecting' );
 							}
 						}.bind( this ), wait || 5000 );
@@ -92,16 +92,17 @@ function connectionManager( index, config, factory, limit, wait ) {
 			},
 			shutdown: {
 				_onEnter: function() {
-					if( this.timeout ) {
+					if ( this.timeout ) {
 						clearTimeout( this.timeout );
 					}
+					debug( 'entering shut down' );
 					this.emit( 'shutdown', this );
 				}
 			},
 			closed: {
 				_onEnter: function() {
 					debug( 'Closing connection to %s:%s.', config.host, config.port );
-					if( this.timeout ) {
+					if ( this.timeout ) {
 						clearTimeout( this.timeout );
 					}
 					this.emit( 'closed', this );

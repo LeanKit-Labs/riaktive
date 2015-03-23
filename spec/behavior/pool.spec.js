@@ -1,7 +1,7 @@
-var should = require( 'should' );
+require( '../setup' );
 var when = require( 'when' );
-var connectionManager = require( '../src/connectionManager' );
-var createPool = require( '../src/pool' );
+var connectionManager = require( '../../src/connectionManager' );
+var createPool = require( '../../src/pool' );
 
 describe( 'Connectivity', function() {
 
@@ -14,7 +14,7 @@ describe( 'Connectivity', function() {
 				},
 				removeListener: function( ev ) {
 					delete this.handlers[ ev ];
-				}	
+				}
 			},
 			raise: function( ev ) {
 				this.client.handlers[ ev ].apply( undefined, Array.prototype.slice.call( arguments, 1 ) );
@@ -27,7 +27,9 @@ describe( 'Connectivity', function() {
 			var manager;
 
 			before( function( done ) {
-				manager = connectionManager( 1, {}, function() { return when.reject( new Error( 'boo' ) ); }, 5, 10 );
+				manager = connectionManager( 1, {}, function() {
+					return when.reject( new Error( 'boo' ) );
+				}, 5, 10 );
 				manager.on( 'shutdown', function() {
 					done();
 				} );
@@ -49,7 +51,7 @@ describe( 'Connectivity', function() {
 			var tries = 0;
 			before( function( done ) {
 				var factory = function() {
-					if( ++tries > 2 ) {
+					if ( ++tries > 2 ) {
 						return when.resolve( connectionMock() );
 					} else {
 						return when.reject( new Error( 'boo' ) );
@@ -93,7 +95,7 @@ describe( 'Connectivity', function() {
 				};
 				manager = connectionManager( 1, {}, factory, 5, 10 );
 				manager.on( 'connected', function() {
-					if( ++connections >= 2 ) {
+					if ( ++connections >= 2 ) {
 						done();
 					} else {
 						connection.raise( 'end' );
@@ -133,8 +135,10 @@ describe( 'Connectivity', function() {
 			var pool;
 			var error;
 			before( function( done ) {
-				pool = createPool( { nodes: [ { host: 'herp' }, { host: 'dederp' } ], wait: 20, limit: 2 }, function() { return when.reject( new Error( 'fail' ) ); } );
-				pool.acquire( function( err, connection ) {
+				pool = createPool( { nodes: [ { host: 'herp' }, { host: 'dederp' } ], wait: 20, limit: 2 }, function() {
+					return when.reject( new Error( 'fail' ) );
+				} );
+				pool.acquire( function( err ) {
 					error = err;
 					pool.close();
 					done();
@@ -154,7 +158,9 @@ describe( 'Connectivity', function() {
 			var order = [];
 			before( function( done ) {
 				connection = connectionMock();
-				pool = createPool( { nodes: [ {} ], wait: 20, limit: 2 }, function() { return when.resolve( connection ); } );
+				pool = createPool( { nodes: [ {} ], wait: 20, limit: 2 }, function() {
+					return when.resolve( connection );
+				} );
 				pool.acquire( function( err, connection ) {
 					lease1 = connection;
 					order.push( 1 );

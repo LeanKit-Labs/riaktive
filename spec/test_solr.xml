@@ -12,9 +12,7 @@
 	<dynamicField name="*.id" type="long" indexed="true" stored="false" multiValued="true"/>
 	<dynamicField name="*Name" type="text_general" indexed="true" stored="false" multiValued="true"/>
 	<dynamicField name="*Id" type="long" indexed="true" stored="false" multiValued="true"/>
-	<dynamicField name="*ed" type="long" indexed="true" stored="false" multiValued="true"/>
 	<dynamicField name="*Date" type="date" indexed="true" stored="false" multiValued="true"/>
-	<dynamicField name="*ive" type="boolean" indexed="true" stored="false" multiValued="true"/>
 	<dynamicField name="*Total" type="long" indexed="true" stored="false" multiValued="true"/>
 	<dynamicField name="total*" type="long" indexed="true" stored="false" multiValued="true"/>
 	<dynamicField name="*Average" type="float" indexed="true" stored="false" multiValued="true"/>

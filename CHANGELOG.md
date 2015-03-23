@@ -1,5 +1,14 @@
 ## 0.1.*
 
+### prerelease 8
+
+ * Removed default schema
+ * Improve implementation of mutate to only persist if changes occur - resolve to boolean to indicate a change
+ * Fix broken test asserting that failed/reset works as expected
+ * No longer remove '_indexes' property from documents on put
+ * Rework build script to use biggulp
+ * Replace should with chai
+
 ### prerelease 7
 
  * Compatibility with riakpbc 0.2.*

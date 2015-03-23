@@ -1,15 +1,12 @@
-var gulp = require( 'gulp' ),
-	mocha = require( 'gulp-mocha' );
+var gulp = require( 'gulp' );
+var bg = require( 'biggulp' )( gulp );
 
-gulp.task( 'test', function() {
-	gulp.src( './spec/*.spec.js' )
-		.pipe( mocha( { reporter: 'spec' } ) )
-		.on( 'error', function( err ) { console.log( err.stack ); } );
+gulp.task( 'coverage', bg.withCoverage() );
+
+gulp.task( 'coverage-watch', function() {
+	bg.watch( [ 'coverage' ] );
 } );
 
-gulp.task( 'watch', function() {
-	gulp.watch( [ './src/**', './spec/**' ], [ 'test' ] );
-} );
+gulp.task( 'show-coverage', bg.showCoverage() );
 
-gulp.task( 'default', [ 'test', 'watch' ], function() {
-} );
+gulp.task( 'default', [ 'coverage', 'coverage-watch' ], function() {} );
