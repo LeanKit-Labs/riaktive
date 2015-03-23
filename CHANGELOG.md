@@ -1,5 +1,8 @@
 ## 0.1.*
 
+### prerelease 10
+Update sliver version to include support for Node 0.12.*
+
 ### prerelease 9
 Fix bug where calling bucket or index multiple times would declare the bucket/index every time.
 

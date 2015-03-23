@@ -1,6 +1,6 @@
 {
   "name": "riaktive",
-  "version": "0.1.0-9",
+  "version": "0.1.0-10",
   "description": "A Riak API abstraction built on riakpbc that aims for simplicity.",
   "main": "src/index.js",
   "scripts": {
@@ -8,6 +8,12 @@
   },
   "author": "Alex Robson",
   "license": "MIT License - http://opensource.org/licenses/MIT",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "keywords": [
+    "riak"
+  ],
   "dependencies": {
     "configya": "~0.2.0",
     "debug": "^1.0.4",
@@ -16,7 +22,7 @@
     "monologue.js": "^0.2.1",
     "node-uuid": "^1.4.1",
     "riakpbc": "~2.1.0",
-    "sliver": "~0.0.2",
+    "sliver": "~0.1.0",
     "solr-client": "~0.2.9",
     "when": "~3.0.0"
   },
