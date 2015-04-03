@@ -103,7 +103,7 @@ describe( 'when connecting', function() {
 		describe( 'after resetting', function() {
 
 			before( function() {
-				riak.pool.addNode( { host: 'localhost' } );
+				riak.pool.addNode( { host: config.riak.server } );
 				riak.reset();
 			} );
 
