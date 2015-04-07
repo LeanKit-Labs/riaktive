@@ -57,12 +57,33 @@ function buildPut( bucketName, key, obj, indexes, original ) {
 	return request;
 }
 
-function content( obj, indexes ) { // jshint ignore:line
+
+function content( obj, indexes ) {
 	var tmp = { 'content_type': 'application/json', value: JSON.stringify( _.omit( obj, '_indexes' ) ) };
 	if ( indexes ) {
 		tmp.indexes = indexes;
 	}
 	return tmp;
+}
+
+function createBucket( idStrategy, riak, bucketName ) {
+	return {
+		del: del.bind( undefined, riak, bucketName ),
+		get: get.bind( undefined, riak, bucketName ),
+		getByKeys: getByBucketKeys.bind( undefined, riak, bucketName ),
+		getByIndex: getByIndex.bind( undefined, riak, bucketName ),
+		getKeys: getKeys.bind( undefined, riak, bucketName ),
+		getKeysByIndex: getKeysByIndex.bind( undefined, riak, bucketName ),
+		mutate: mutate.bind( undefined, riak, bucketName ),
+		put: put.bind( undefined, riak, idStrategy, bucketName ),
+		readBucket: readBucket.bind( undefined, riak, bucketName )
+	};
+}
+
+function createIndex( riak ) {
+	return {
+		getByKeys: getByKeys.bind( undefined, riak )
+	};
 }
 
 function del( riak, bucketName, key ) {
@@ -147,7 +168,7 @@ function getKeys( riak, bucketName ) {
 	return riak.getKeys( { bucket: bucketName } );
 }
 
-function getKeysByIndex( riak, bucketName, index, start, finish, limit, continuation ) { // jshint ignore:line
+function getKeysByIndex( riak, bucketName, index, start, finish, limit, continuation ) {
 	var query = buildIndexQuery( bucketName, index, start, finish, limit, continuation );
 	var newContinuation;
 	debug( 'Requesting keys for %s', JSON.stringify( query ) );
@@ -168,7 +189,7 @@ function getKeysByIndex( riak, bucketName, index, start, finish, limit, continua
 		} );
 }
 
-function includeDeleted( flag ) { // jshint ignore:line
+function includeDeleted( flag ) {
 	return function( doc ) {
 		return flag ? true : !doc.deleted;
 	};
@@ -186,7 +207,7 @@ function mutate( riak, bucketName, key, mutateFn ) {
 				var mutatis = mutateFn( _.cloneDeep( original ) );
 				if ( _.isEqual( _.omit( mutatis, 'vtag', 'vclock' ), _.omit( original, 'vtag', 'vclock' ) ) ) {
 					debug( 'no changes to document %s in bucket %s', key, bucketName );
-					return false;
+					return original;
 				} else {
 					mutatis.vclock = original.vclock;
 					debug( 'mutated to %s', JSON.stringify( mutatis ) );
@@ -205,7 +226,7 @@ function mutate( riak, bucketName, key, mutateFn ) {
 		} );
 }
 
-function parseIndexes( doc, obj ) { // jshint ignore:line
+function parseIndexes( doc, obj ) {
 	var collection = {};
 	if ( obj.indexes && !doc._indexes ) {
 		_.each( obj.indexes, function( index ) {
@@ -229,7 +250,7 @@ function parseIndexes( doc, obj ) { // jshint ignore:line
 	}
 }
 
-function processIndexes( list ) { // jshint ignore:line
+function processIndexes( list ) {
 	return _.flatten( _.map( list, function( val, key ) {
 		var isArray = _.isArray( val );
 		var sample = isArray ? val[ 0 ] : val;
@@ -250,23 +271,19 @@ function processIndexes( list ) { // jshint ignore:line
 	} ) );
 }
 
-function put( riak, bucketName, key, obj, indexes, getBeforePut ) { // jshint ignore:line
-	if ( !obj || _.isObject( key ) ) {
-		if ( indexes ) {
-			getBeforePut = indexes;
-		}
-		if ( obj ) {
-			indexes = processIndexes( obj );
-		}
+function put( riak, idStrategy, bucketName, key, obj, indexes, getBeforePut ) {
+	if ( _.isObject( key ) ) {
+		getBeforePut = indexes;
+		indexes = obj;
 		obj = key;
-		key = obj.id || riak.ids.getId();
-	} else if ( indexes ) {
+		key = undefined;
+	}
+	key = key || obj.id || idStrategy();
+	obj.id = obj.id || key;
+	indexes = indexes || obj._indexes;
+	if ( indexes ) {
 		indexes = processIndexes( indexes );
 	}
-	if ( _.isEmpty( indexes ) && obj._indexes ) {
-		indexes = processIndexes( obj._indexes );
-	}
-	obj.id = obj.id || key;
 
 	var getOriginal = function() {
 		var vclock = obj.vclock;
@@ -296,6 +313,7 @@ function put( riak, bucketName, key, obj, indexes, getBeforePut ) { // jshint ig
 }
 
 function readBucket( riak, bucketName ) {
+	bucketName = _.isObject( bucketName ) ? bucketName.bucketName : bucketName;
 	return riak.getBucket( { bucket: bucketName } )
 		.then( null, function( err ) {
 			debug( 'Failed to read bucket properties for %s with %s', bucketName, err.stack );
@@ -307,29 +325,9 @@ function readBucket( riak, bucketName ) {
 		} );
 }
 
-function scrubDocs( reply, inclusive ) { // jshint ignore:line
+function scrubDocs( reply, inclusive ) {
 	var filtered = _.filter( reply.content, includeDeleted( inclusive ) );
 	return _.map( filtered, formatContent.bind( undefined, reply ) );
-}
-
-function createBucket( riak, bucketName ) {
-	return {
-		del: del.bind( undefined, riak, bucketName ),
-		get: get.bind( undefined, riak, bucketName ),
-		getByKeys: getByBucketKeys.bind( undefined, riak, bucketName ),
-		getByIndex: getByIndex.bind( undefined, riak, bucketName ),
-		getKeys: getKeys.bind( undefined, riak, bucketName ),
-		getKeysByIndex: getKeysByIndex.bind( undefined, riak, bucketName ),
-		mutate: mutate.bind( undefined, riak, bucketName ),
-		put: put.bind( undefined, riak, bucketName ),
-		readBucket: readBucket.bind( undefined, riak, bucketName )
-	};
-}
-
-function createIndex( riak ) {
-	return {
-		getByKeys: getByKeys.bind( undefined, riak )
-	};
 }
 
 exports.createBucket = createBucket;

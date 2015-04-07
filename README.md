@@ -4,7 +4,7 @@ A Riak API abstraction built on riakpbc that aims for simplicity.
 ## Rationale
 I like the riakpbc Node library is but using it requires detailed knowledge of Riak's sophisticated API. Our intention with riaktive is to provide a simple set of abstractions for the most common use cases.
 
-Hopefully this library will encourage folks to give Riak a try.
+Hopefully this library will ease Riak adoption.
 
 ## Features
 
@@ -14,7 +14,7 @@ Hopefully this library will encourage folks to give Riak a try.
  * Paging
  * 'Mutate' (fetch -> change -> put)
  * Search (via Riak's new Solr integration)
- * Flake-Id generation (128 bit, lexicographically sortable keys)
+ * Pluggable key generation strategy
 
 ## Assumptions
 
@@ -24,17 +24,19 @@ Hopefully this library will encourage folks to give Riak a try.
  * allow siblings (allow_mult = true)
 
 ### levelDB
-levelDB is currently the best way I know to solve for certain common data access patterns (like paging). Depending on how you're using the secondary indexes, it's possible you could see some small performance hits. Give how fast Riak is, my guess is that other areas of your app will be bottlenecks long before Riak is.
+levelDB is currently the simplest way to solve for certain common data access patterns (like paging). The small performance trade-off is preferable to resolving hard problems outside the database.
 
 ### Allow Siblings
-This library defaults buckets to `allow_mult=true` on creation. While you could change this, you should not play last-write-wins roulette :)
+This library defaults buckets to `allow_mult=true` on creation. Stick with the default, don't play last-write-wins roulette :)
 
 ## Quick Start
 
 ```javascript
 var riaktive = require( 'riaktive' );
 
-var riak = riaktive.connect(); // defaults to 127.0.0.1 at port 8087 with http port at 8098 for Solr queries
+// defaults to 127.0.0.1 at port 8087 with http port at 8098 for Solr queries
+var riak = riaktive.connect();
+
 // creates a bucket with custom schema - index name defaults to bucketName_index
 var bucket = riak.bucket( 'mahbucket', { schema: 'cat_schema', schemaPath: './spec/solr_cat.xml' } );
 
@@ -72,8 +74,6 @@ bucket.getByIndex( 'type', 'felis catus' )
 
 var searchResults = [];
 // retrieve documents matching Solr search criteria
-// note: the default Solr schema riaktive provides indexes 'name' properties
-// also: default search index is {bucketName}_index
 var index = riak.index( 'mahbucket_index' );
 index.search( { name: 'kitteh' } )
 	.progress( function( match ) {
@@ -148,22 +148,23 @@ Once a connection pool has shutdown due to all nodes passing their reconnection 
 riak.reset();
 ```
 
-## Flake-ids
-Riak will generate a 128 bit, base 62 encoded, k-ordered, lexicographically sortable ids. The only prerequisite for this feature is providing a **globally unique** node id for your service instance. as part of the connect call:
+## Id strategies
+By default, a random UUID will be used as a key if one is not provided. This should be avoided if at all possible. The best way to manage this is to provide an id strategy (like [`sliver`](https://github.com/LeanKit-Labs/sliver)) which will produce unique, sortable keys without coordination.
+
+The id strategy is a simple function that takes no arguments and returns a string. The following example demonstrates using sliver's getId call:
 
 ```javascript
-riak.connect( {
-	nodes: [
-		...
-	],
-	nodeId: 'this-must-be-globally-unique'
-}
+var riaktive = require( 'riaktive' );
+var sliver = require( 'sliver' )();
+riaktive.setIdStrategy( sliver.getId );
 ```
 
-	If you don't provide a nodeId, riaktive will base its nodeId on a randomly generated uuid which is then murmurhashed. There is some potential for collision (but it's extremely low). If you want to be certain, you'll need a strategy for acquiring unique nodeIds from a service.
+> 'sliver' generates 128 bit, base 62 encoded, k-ordered, lexicographically sortable ids.
 
 ## Get, Put, Mutate, Delete
-These bucket operations should be straight-forward. The one exception is mutate. Riaktive provides this call for cases when you need to read, change and persist the changes without creating siblings*.
+These bucket operations should be straight-forward. The one exception is mutate. Riaktive provides this call for cases when you need to read, change and persist the changes and would like to avoid siblings.
+
+> Note: concurrent mutation is still a problem. See [hashqueue](https://github.com/LeanKit-Labs) to limit local concurrency and [consul-locker] for distributed mutual exclusion.
 
 ### get( key )
 Get retrieves a document by key.
@@ -174,10 +175,12 @@ riak.bucketName.get( 'someId' )
 	.then( null, function( err ) {} );
 ```
 
-### put( key, doc, indexes ), put( doc, indexes )
-Puts a new document either by specific `key` arg, `id` property or a generated flake id. Indexes are a hash of key-values that will be attached to the document. The result of the promise is the key of the document (useful for puts that are using generated flake ids).
+### put( [key], doc, [indexes] )
+Puts a new document either by specific `key` arg, `id` property or a generated id using the id strategy. Indexes are a hash of key-values that will be attached to the document. The result of the promise is the key of the document (useful for puts that are using generated ids).
 
 > Secondary Indexes - when a document is put, the indexes provided will be the only ones present. There is no way to only add or remove indexes from previous versions of a document with the same key.
+
+> !Siblings! - putting a document to the same key without the previous vclock indicates to Riak that your app hasn't seen the previous version. This causes Riak to store the new document alongside the original. When siblings exist, riaktive will return an array containing all the siblings vs. a single document.
 
 ```javascript
 var docA = {
@@ -186,28 +189,36 @@ var docA = {
 var docB = {
 	id: 'natural key'
 };
+var docC = {
+	...
+};
 var indexes = {
 	indexOne: 1,
 	indexTwo: 'two'
 }
 
-// put by a generated key
-riak.bucketName.put( 'someId', docA )
+// put using a custom key with indexes
+riak.bucketName.put( 'someId', docA, indexes )
 	.then( function( id ) {} )
 	.then( null, function( err ) {} );
 
-// put by an id property
+// put using an id property, no indexes
 riak.bucketName.put( docB )
+	.then( function( id ) {} )
+	.then( null, function( err ) {} );
+
+// put with a generated id, no indexes
+riak.bucketName.put( docC )
 	.then( function( id ) {} )
 	.then( null, function( err ) {} );
 ```
 
-> Siblings - putting a document to the same key without the previous vclock indicates to Riak that your app hasn't seen the previous version. This causes Riak to store the new document alongside the original. When siblings exist, riaktive will return an array containing all the siblings vs. a single document.
-
 ### mutate( key, mutateFn )
-Mutate exists only to support cases when you need to read a document, make a change to it and save it back to Riak without creating a sibling by accident.
+Mutate exists to read a document, make a change to it and save it back to Riak without creating a sibling by accident.
 
-The mutate function will be passed the document and is expected to return the changed document. Mutate will only save the document if changes are actually made and the resulting promise will resolve to `true` if a change occurred.
+The mutate function will be passed the document and is expected to return either the changed document or original document. Mutate will only save the document if changes were actually made as a result of the call.
+
+> Remember: mutate does not prevent concurrent mutation of the same key. Use a project like [hashqueue](https://github.com/LeanKit-Labs/hashqueue) to prevent accidental sibling creation from concurrent changes.
 
 ```javascript
 riak.bucketName.mutate( 'someKey', function( doc ) {
@@ -226,7 +237,7 @@ riak.bucketName.del( 'someKey' )
 ```
 
 ## Secondary Indexes
-As you've seen, you can supply secondary indexes with the put call. Riaktive provides two calls for retrieving keys or documents by index.
+Secondary Indexes can be supplied to the put call and are available during mutation via the `_indexes` property. Riaktive provides two calls for retrieving keys or documents by index.
 
 ### index
 Riaktive manages the _bin, _int suffixes on index names for you so that you don't have to provide those when creating new indexes or getting by them. In addition, you can also use the `$key` index as a way to get a range of keys. (frequently used for paging)
@@ -234,12 +245,12 @@ Riaktive manages the _bin, _int suffixes on index names for you so that you don'
 ### start and finish
 In most cases, the smallest starting key value is `!` and the largest finish key is `~`. Keep in mind that the sort order for binary indexes is lexicographic.
 
-If you are looking for an exact match, rather than a range, supply only a start value.
+If an exact match is desired, only supply the start property.
 
 ### limit and continuation
-Providing a limit to prevent unbounded index searches across your cluster. When providing a limit, the resulting promise will finalize with a continuation that can be passed for the next call in order to get the 'next page' of results.
+Provide a limit to prevent unbounded index searches across the cluster. When a limit is specified, the resulting promise will finalize with a continuation that can be passed to the next call in order to get the 'next page' of results.
 
-	Note: if a continuation exists, it will also be attached to each result
+	Note: if a continuation exists, it will be attached to each result
 
 ### parameter hash
 Both calls support passing all arguments as a hash:
@@ -278,12 +289,12 @@ Riaktive will check for an existing schema with contents matching the file at `s
 ### Index
 An index is associated with a bucket by the `search_index` property. If a `schema` property is also included, riaktive will create or update the index if a match with the same schema name doesn't exist.
 
-If you don't specify an index name but provide a schema, riaktive will create one named after the bucket with the suffix '_index' that uses the 'riaktive_schema' mentioned earlier.
+If a schema is specified without an index name, riaktive will create one named after the bucket with the suffix '_index'
 
 ### Searching
 You can easily search an existing Solr index using the JSON representation of Solr queries.
 
-Just like with buckets, you need to define the index first and then either access the index off the riaktive instance directly or via the returned variable:
+As with buckets, the index must be defined first before accessing the index off the riaktive instance directly or via the returned variable:
 
 ```javascript
 var myBucketIndex = riak.index( 'mybucket_index' );

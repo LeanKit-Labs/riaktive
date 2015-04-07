@@ -22,7 +22,6 @@
     "monologue.js": "^0.2.1",
     "node-uuid": "^1.4.1",
     "riakpbc": "~2.1.0",
-    "sliver": "~0.1.0",
     "solr-client": "~0.2.9",
     "when": "~3.0.0"
   },

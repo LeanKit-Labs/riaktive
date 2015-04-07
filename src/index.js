@@ -8,10 +8,10 @@ var api = require( './riak.js' );
 var solr = require( './search.js' );
 var uuid = require( 'node-uuid' );
 var pool = require( './pool.js' );
+var idStrategy = uuid.v4;
 
 function connect( options ) {
 	var nodes = [];
-	var nodeId;
 	var normalized = {};
 	if ( _.isArray( options ) ) {
 		nodes = options;
@@ -24,11 +24,6 @@ function connect( options ) {
 			nodes = [ options ];
 			normalized = { nodes: nodes };
 		}
-		nodeId = options.nodeId;
-	}
-
-	if ( !nodeId ) {
-		nodeId = uuid.v4();
 	}
 
 	var defaultNode = {
@@ -63,16 +58,16 @@ function connect( options ) {
 		} );
 	} );
 
-	return lift( client, nodeId );
+	return lift( client );
 }
 
 // this is here to convert Node style callbacks to promises
-function lift( client, nodeId ) { // jshint ignore:line
+function lift( client ) { // jshint ignore:line
 	var lifted = {
 		bucket: function( bucketName, options ) {
 			var bucket = this[ bucketName ];
 			if ( !bucket ) {
-				bucket = createBucket( bucketName, options || {}, this, api.createBucket, nodeId );
+				bucket = createBucket( bucketName, options || {}, this, api.createBucket.bind( api, idStrategy ) );
 				this[ bucket.name ] = bucket;
 			}
 			if ( bucket.alias ) {
@@ -164,4 +159,8 @@ function safeLift( fn ) { // jshint ignore:line
 	};
 }
 
-module.exports = { connect: connect };
+function setIdStrategy( idFn ) {
+	idStrategy = idFn;
+}
+
+module.exports = { connect: connect, setIdStrategy: setIdStrategy };
