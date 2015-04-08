@@ -24,7 +24,7 @@ function proxyLog( logName ) {
 }
 
 module.exports = function( config ) {
-	if ( !_.isString( config ) ) {
+	if ( !_.isString( config ) || ( !config && !log ) ) {
 		log = configure( config || {} );
 		logs.bucket = log( 'riaktive:bucket' );
 		logs.connection = log( 'riaktive:connectionManager' );

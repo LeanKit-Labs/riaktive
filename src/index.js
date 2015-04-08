@@ -1,3 +1,4 @@
+require( './log' );
 var _ = require( 'lodash' );
 var when = require( 'when' );
 var nodeWhen = require( 'when/node' );
@@ -39,7 +40,7 @@ function connect( options ) {
 
 	var client = riakpbc.createClient( {
 		nodes: [],
-		connectTimeout: options.timeout
+		connectTimeout: options.timeout || 2000
 	} );
 
 	normalized.nodes = _.map( normalized.nodes, function( n ) {
@@ -49,7 +50,7 @@ function connect( options ) {
 	} );
 
 	client.pool = pool( normalized, function( node ) {
-		var opts = _.pick( _.defaults( node, defaultNode ), [ 'host', 'port' ] );
+		node = _.defaults( node, defaultNode );
 		return when.promise( function( resolve, reject ) {
 			var conn = new RiakConnection( node );
 			conn.connect( function( err ) {
