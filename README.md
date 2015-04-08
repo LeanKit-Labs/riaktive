@@ -303,6 +303,20 @@ myBucketIndex.search( { name: 'Waldo } )
 	.then( function( statistics ) { /* do something with stats */ } );
 ```
 
+## Logging
+Riaktive uses whistlepunk for logging. To provide configuration to control logging, use `configureLogging`.
+
+```javascript
+var riaktive = require( 'riaktive' );
+riaktive.configureLogging( {
+	adapters: {
+		stdOut: {
+			level: 4
+		}
+	}
+} );
+```
+
 ## Roadmap
  * Provide strategies to control concurrent changes to documents (to better control sibling creation)
  * Automatically track a list of buckets created in a Riak bucket and provide a simple call to fetch them

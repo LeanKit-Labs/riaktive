@@ -1,6 +1,6 @@
 var _ = require( 'lodash' );
 var when = require( 'when' );
-var debug = require( 'debug' )( 'riaktive:api' );
+var log = require( './log' )( 'api' );
 
 function buildIndexQuery( bucketName, index, start, finish, limit, continuation ) {
 	if ( _.isObject( index ) ) {
@@ -53,7 +53,7 @@ function buildPut( bucketName, key, obj, indexes, original ) {
 		content: content( obj, indices ),
 		vclock: original.vclock || obj.vclock
 	};
-	debug( 'Putting %s to %s in %s', JSON.stringify( request ), key, bucketName );
+	log.debug( 'Putting %s to %s in %s', JSON.stringify( request ), key, bucketName );
 	return request;
 }
 
@@ -111,7 +111,7 @@ function get( riak, bucketName, key, includeDeleted ) {
 			return err;
 		} )
 		.then( function( reply ) {
-			debug( 'Get %s in %s returned %s (raw)', key, bucketName, JSON.stringify( reply ) );
+			log.debug( 'Get %s in %s returned %s (raw)', key, bucketName, JSON.stringify( reply ) );
 			var docs = scrubDocs( reply, includeDeleted );
 			if ( _.isEmpty( docs ) ) {
 				return undefined;
@@ -156,7 +156,7 @@ function getByIndex( riak, bucketName, index, start, finish, limit, continuation
 				} );
 			} )
 			.then( function( next ) {
-				debug( 'Resolving %s keys', promises.length );
+				log.debug( 'Resolving %s keys', promises.length );
 				when.all( promises ).then( function() {
 					resolve( next );
 				} );
@@ -171,7 +171,7 @@ function getKeys( riak, bucketName ) {
 function getKeysByIndex( riak, bucketName, index, start, finish, limit, continuation ) {
 	var query = buildIndexQuery( bucketName, index, start, finish, limit, continuation );
 	var newContinuation;
-	debug( 'Requesting keys for %s', JSON.stringify( query ) );
+	log.debug( 'Requesting keys for %s', JSON.stringify( query ) );
 	return riak.getIndex( query )
 		.then( function() {
 			if ( newContinuation ) {
@@ -206,11 +206,11 @@ function mutate( riak, bucketName, key, mutateFn ) {
 			} else {
 				var mutatis = mutateFn( _.cloneDeep( original ) );
 				if ( _.isEqual( _.omit( mutatis, 'vtag', 'vclock' ), _.omit( original, 'vtag', 'vclock' ) ) ) {
-					debug( 'no changes to document %s in bucket %s', key, bucketName );
+					log.debug( 'no changes to document %s in bucket %s', key, bucketName );
 					return original;
 				} else {
 					mutatis.vclock = original.vclock;
-					debug( 'mutated to %s', JSON.stringify( mutatis ) );
+					log.debug( 'mutated to %s', JSON.stringify( mutatis ) );
 					return put( riak, bucketName, key, mutatis )
 						.then( function() {
 							return mutatis;
@@ -316,11 +316,11 @@ function readBucket( riak, bucketName ) {
 	bucketName = _.isObject( bucketName ) ? bucketName.bucketName : bucketName;
 	return riak.getBucket( { bucket: bucketName } )
 		.then( null, function( err ) {
-			debug( 'Failed to read bucket properties for %s with %s', bucketName, err.stack );
+			log.error( 'Failed to read bucket properties for %s with %s', bucketName, err.stack );
 			return {};
 		} )
 		.then( function( bucket ) {
-			debug( 'Read bucket properties for %s: %s', bucketName, bucket.props || {} );
+			log.debug( 'Read bucket properties for %s: %s', bucketName, bucket.props || {} );
 			return bucket.props || {};
 		} );
 }

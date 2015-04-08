@@ -10,6 +10,10 @@ var uuid = require( 'node-uuid' );
 var pool = require( './pool.js' );
 var idStrategy = uuid.v4;
 
+function configureLogging( logConfig ) {
+	require( './log' )( logConfig );
+}
+
 function connect( options ) {
 	var nodes = [];
 	var normalized = {};
@@ -163,4 +167,8 @@ function setIdStrategy( idFn ) {
 	idStrategy = idFn;
 }
 
-module.exports = { connect: connect, setIdStrategy: setIdStrategy };
+module.exports = {
+	connect: connect,
+	configureLogging: configureLogging,
+	setIdStrategy: setIdStrategy
+};

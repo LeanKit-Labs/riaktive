@@ -16,14 +16,15 @@
   ],
   "dependencies": {
     "configya": "~0.2.0",
-    "debug": "^1.0.4",
     "lodash": "~2.4.1",
     "machina": "^0.4.0-1",
     "monologue.js": "^0.2.1",
     "node-uuid": "^1.4.1",
+    "postal": "^1.0.2",
     "riakpbc": "~2.1.0",
     "solr-client": "~0.2.9",
-    "when": "~3.0.0"
+    "when": "~3.0.0",
+    "whistlepunk": "^0.3.0"
   },
   "devDependencies": {
     "biggulp": "0.0.2",

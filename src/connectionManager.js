@@ -1,6 +1,6 @@
 var machina = require( 'machina' );
 var monologue = require( 'monologue.js' );
-var debug = require( 'debug' )( 'riaktive:connectionManager' );
+var log = require( './log' )( 'connection' );
 
 function connectionManager( index, config, factory, limit, wait ) {
 	var Machine = machina.Fsm.extend( {
@@ -22,18 +22,18 @@ function connectionManager( index, config, factory, limit, wait ) {
 			}
 		},
 		_onConnection: function( connection ) {
-			debug( 'Connection established to %s:%s', config.host, config.port );
+			log.info( 'Connection established to %s:%s', config.host, config.port );
 			this.connection = connection;
 			this._attachHandlers();
 			this.transition( 'connected' );
 		},
 		_onError: function( err ) {
-			debug( 'Connection error on %s:%s - %s', config.host, config.port, ( err.stack ? err.stack : err ) );
+			log.error( 'Connection error on %s:%s - %s', config.host, config.port, ( err.stack ? err.stack : err ) );
 			this._detachHandlers();
 			this.handle( 'connection.error', err );
 		},
 		_onEnd: function() {
-			debug( 'Connection closed on %s:%s', config.host, config.port );
+			log.warn( 'Connection closed on %s:%s', config.host, config.port );
 			this._detachHandlers();
 			this.handle( 'connection.end' );
 		},
@@ -79,7 +79,7 @@ function connectionManager( index, config, factory, limit, wait ) {
 					this.emit( 'disconnected', this );
 					this.consecutiveFailures++;
 					if ( this.consecutiveFailures <= ( limit || 5 ) ) {
-						debug( 'Will attempt to reconnect to %s:%s after %d ms', config.host, config.port, ( wait || 5000 ) );
+						log.info( 'Will attempt to reconnect to %s:%s after %d ms', config.host, config.port, ( wait || 5000 ) );
 						this.timeout = setTimeout( function() {
 							if ( this.state !== 'shutdown' && this.state !== 'closed' ) {
 								this.transition( 'connecting' );
@@ -95,13 +95,13 @@ function connectionManager( index, config, factory, limit, wait ) {
 					if ( this.timeout ) {
 						clearTimeout( this.timeout );
 					}
-					debug( 'entering shut down' );
+					log.debug( 'entering shut down' );
 					this.emit( 'shutdown', this );
 				}
 			},
 			closed: {
 				_onEnter: function() {
-					debug( 'Closing connection to %s:%s.', config.host, config.port );
+					log.debug( 'Closing connection to %s:%s.', config.host, config.port );
 					if ( this.timeout ) {
 						clearTimeout( this.timeout );
 					}

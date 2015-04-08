@@ -1,6 +1,6 @@
 var _ = require( 'lodash' );
 var connectionManager = require( './connectionManager' );
-var debug = require( 'debug' )( 'riaktive:pool' );
+var log = require( './log' )( 'pool' );
 
 function createPool( config, factory ) {
 
@@ -18,7 +18,7 @@ function createPool( config, factory ) {
 		if ( connection && connection.length ) {
 			cb( null, connection[ 0 ] );
 		} else {
-			debug( 'Enqueueing connection acquisition. %d in the queue.', ( waiting.length + 1 ) );
+			log.debug( 'Enqueueing connection acquisition. %d in the queue.', ( waiting.length + 1 ) );
 			waiting.push( cb );
 		}
 	}
@@ -35,10 +35,10 @@ function createPool( config, factory ) {
 	function onConnection( connection ) {
 		if ( connection.state === 'connected' ) {
 			if ( waiting.length ) {
-				debug( 'Granting acquisition request from queue. %d remaining in the queue.', ( waiting.length - 1 ) );
+				log.debug( 'Granting acquisition request from queue. %d remaining in the queue.', ( waiting.length - 1 ) );
 				waiting.shift()( null, connection );
 			} else {
-				debug( 'Saving connection to %s:%s for later', connection.config.host, connection.config.port );
+				log.debug( 'Saving connection to %s:%s for later', connection.config.host, connection.config.port );
 				nodeConnections[ connection.id ].push( connection );
 			}
 		}
@@ -49,7 +49,7 @@ function createPool( config, factory ) {
 	}
 
 	function onShutdown( connection ) {
-		debug( 'Shutting down connection to node %s:%s due to too many consecutive failed connection attempts.', connection.config.host, connection.config.port );
+		log.warn( 'Shutting down connection to node %s:%s due to too many consecutive failed connection attempts.', connection.config.host, connection.config.port );
 		connection.off( 'connected' );
 		connection.off( 'disconnected' );
 		connection.off( 'shutdown' );
@@ -59,22 +59,22 @@ function createPool( config, factory ) {
 		}
 		managers = _.without( managers, connection );
 		if ( ++shutdown === nodes.length && !closed ) {
-			debug( 'All defined nodes have shutdown. Connection pool will require a reset to continue attempting connections.' );
-			while (waiting.length) {
+			log.error( 'All defined nodes have shutdown. Connection pool will require a reset to continue attempting connections.' );
+			while ( waiting.length ) {
 				waiting.pop()( new Error( 'All nodes were unreachable.' ) );
 			}
 		}
 	}
 
 	function onClose( connection ) {
-		debug( 'Closed connection to node %s:%s.', connection.config.host, connection.config.port );
+		log.debug( 'Closed connection to node %s:%s.', connection.config.host, connection.config.port );
 		connection.off( 'connected' );
 		connection.off( 'disconnected' );
 		connection.off( 'shutdown' );
 		connection.off( 'closed' );
 		managers = _.without( managers, connection );
 		if ( managers.length === 0 ) {
-			debug( 'All connections in the pool have closed' );
+			log.warn( 'All connections in the pool have closed' );
 		}
 	}
 
@@ -113,7 +113,7 @@ function createPool( config, factory ) {
 			return matches.length ? matches[ 0 ].config : ( matches ? matches.config : undefined );
 		},
 		release: function( connection ) {
-			debug( 'Acquisition for connection to %s:%s has been released.', connection.config.host, connection.config.port );
+			log.debug( 'Acquisition for connection to %s:%s has been released.', connection.config.host, connection.config.port );
 			onConnection( connection );
 		},
 		restart: reset
