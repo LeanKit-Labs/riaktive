@@ -1,3 +1,14 @@
+## 0.2.*
+
+### Current
+
+ * Replace sliver with pluggable idStrategy approach
+ * Update mutate to always return document (changed or not)
+ * Make _indexes available during mutate
+ * Add default timeout to ensure promises reject on connection failure
+ * Use whistlepunk for logging
+ * Update/Cleanup README
+
 ## 0.1.*
 
 ### prerelease 10
