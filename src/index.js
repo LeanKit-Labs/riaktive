@@ -1,4 +1,4 @@
-require( './log' );
+require( './log' )();
 var _ = require( 'lodash' );
 var when = require( 'when' );
 var nodeWhen = require( 'when/node' );
