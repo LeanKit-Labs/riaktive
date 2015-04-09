@@ -26,13 +26,13 @@ function proxyLog( logName ) {
 module.exports = function( config ) {
 	if ( !_.isString( config ) || ( !config && !log ) ) {
 		log = configure( config || {} );
-		logs.bucket = log( 'riaktive:bucket' );
-		logs.connection = log( 'riaktive:connectionManager' );
-		logs.indexes = log( 'riaktive:index' );
-		logs.pool = log( 'riaktive:pool' );
-		logs.api = log( 'riaktive:api' );
-		logs.schema = log( 'riaktive:schema' );
-		logs.search = log( 'riaktive:search' );
+		logs.bucket = log( 'riaktive.bucket' );
+		logs.connection = log( 'riaktive.connectionManager' );
+		logs.indexes = log( 'riaktive.index' );
+		logs.pool = log( 'riaktive.pool' );
+		logs.api = log( 'riaktive.api' );
+		logs.schema = log( 'riaktive.schema' );
+		logs.search = log( 'riaktive.search' );
 	}
 	return _.isString( config ) ? proxyLog( config ) : proxyLog;
 };

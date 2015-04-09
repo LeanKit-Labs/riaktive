@@ -210,8 +210,11 @@ function mutate( riak, bucketName, key, mutateFn ) {
 					return original;
 				} else {
 					mutatis.vclock = original.vclock;
-					log.debug( 'mutated to %s', JSON.stringify( mutatis ) );
-					return put( riak, bucketName, key, mutatis )
+					log.debug( 'mutated key %s in bucket %s to %s',
+						key, bucketName,
+						JSON.stringify( _.omit( mutatis, 'vtag', 'vclock' ) )
+					);
+					return put( riak, undefined, bucketName, key, mutatis )
 						.then( function() {
 							return mutatis;
 						} );
