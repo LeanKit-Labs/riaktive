@@ -17,10 +17,10 @@ function diff( one, two ) {
 	return result;
 }
 
-function Bucket( bucket, options, riak, createBucket ) {
+function fsm( name, options, riak, createBucket ) {
 	schemas = schemas || new SchemaManager( riak );
 	index = index || new IndexManager( riak );
-	var bucketName = _.isArray( bucket ) ? _.filter( bucket ).join( '_' ) : bucket;
+	var bucketName = _.isArray( name ) ? _.filter( name ).join( '_' ) : name;
 	var defaults = {
 		schema: undefined,
 		schemaPath: undefined,
@@ -158,7 +158,7 @@ function Bucket( bucket, options, riak, createBucket ) {
 					try {
 						api[ call.operation ].apply( undefined, call.argList )
 							.then( call.resolve, call.reject, call.notify );
-					} catch ( err ) {
+					} catch (err) {
 						debug( 'Operation: %s failed with %s', JSON.stringify( call ), err );
 						call.reject( err );
 					}
@@ -178,4 +178,4 @@ function Bucket( bucket, options, riak, createBucket ) {
 	return machine;
 }
 
-module.exports = Bucket;
+module.exports = fsm;

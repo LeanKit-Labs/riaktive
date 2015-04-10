@@ -94,7 +94,8 @@
 		"require",
 		"sinon",
 		"should",
-		"expect"
+		"expect",
+		"proxyquire"
 	],
 
 	// LEGACY

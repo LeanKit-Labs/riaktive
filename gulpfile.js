@@ -9,4 +9,8 @@ gulp.task( 'coverage-watch', function() {
 
 gulp.task( 'show-coverage', bg.showCoverage() );
 
+gulp.task( 'test', function() {
+	bg.test();
+} );
+
 gulp.task( 'default', [ 'coverage', 'coverage-watch' ], function() {} );
