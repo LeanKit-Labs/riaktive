@@ -49,10 +49,11 @@ function fsm( name, options, riak, createBucket ) {
 
 		_assertIndex: function( name, schema ) {
 			index.create( name, schema )
-				.then( function( pause ) {
+				.then( function( waitMS ) {
+					waitMS = waitMS || 0;
 					setTimeout( function() {
 						this.handle( 'index.asserted' );
-					}.bind( this ), pause ? 10000 : 0 );
+					}.bind( this ), waitMS );
 				}.bind( this ) )
 				.then( null, function( err ) {
 					this.handle( 'index.failed', err );
@@ -72,8 +73,8 @@ function fsm( name, options, riak, createBucket ) {
 			debug( 'Getting bucket props for %s', bucketName );
 			api.readBucket( riak, bucketName )
 				.then( function( props ) {
-					debug( 'Read props %s from bucket %s', JSON.stringify( props ), bucketName );
 					var difference = diff( props, _.omit( options, 'schema', 'schemaPath' ) );
+					debug( 'Read props %s from bucket %s; diff %s', JSON.stringify( props ), bucketName, JSON.stringify( difference ) );
 					if ( _.keys( difference ).length > 0 ) {
 						riak.setBucket( { bucket: bucketName, props: difference } )
 							.then( function() {
@@ -111,9 +112,10 @@ function fsm( name, options, riak, createBucket ) {
 				_onEnter: function() {
 					if ( options.schema ) {
 						debug( 'Checking for schema', options.schema );
-						if ( options.schema && options.schemaPath ) {
+						if ( options.schemaPath ) {
 							this._assertSchema( options.schema, options.schemaPath );
 						} else {
+							debug( 'No schema path specified for bucket %s, skipping to check index', bucketName );
 							this.transition( 'checkingIndex' );
 						}
 					} else {

@@ -95,7 +95,11 @@
 		"sinon",
 		"should",
 		"expect",
-		"proxyquire"
+		"proxyquire",
+		"soon",
+		"NoOp",
+		"_",
+		"when"
 	],
 
 	// LEGACY
