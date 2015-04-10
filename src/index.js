@@ -35,7 +35,8 @@ function connect( options ) {
 		host: 'localhost',
 		port: 8087,
 		http: 8098,
-		connectTimeout: 2000
+		connectTimeout: 2000,
+		connections: 5
 	};
 
 	var client = riakpbc.createClient( {
@@ -46,11 +47,10 @@ function connect( options ) {
 	normalized.nodes = _.map( normalized.nodes, function( n ) {
 		n.connectTimeout = n.timeout;
 		delete n.timeout;
-		return n;
+		return _.merge( {}, defaultNode, n );
 	} );
 
 	client.pool = pool( normalized, function( node ) {
-		node = _.defaults( node, defaultNode );
 		return when.promise( function( resolve, reject ) {
 			var conn = new RiakConnection( node );
 			conn.connect( function( err ) {

@@ -2,6 +2,14 @@ var _ = require( 'lodash' );
 var connectionManager = require( './connectionManager' );
 var log = require( './log' )( 'pool' );
 
+var defaultNode = {
+	host: 'localhost',
+	port: 8087,
+	http: 8098,
+	connectTimeout: 2000,
+	connections: 5
+};
+
 function createPool( config, factory ) {
 
 	var nodes = config.nodes;
@@ -11,12 +19,14 @@ function createPool( config, factory ) {
 	var shutdown = 0;
 	var closed = false;
 
+	log.debug( 'Setting up connection pool for %j', config );
+
 	function acquire( cb ) {
 		var connection = _.find( nodeConnections, function( list ) {
 			return _.first( list );
 		} );
 		if ( connection && connection.length ) {
-			cb( null, connection[ 0 ] );
+			cb( null, connection.shift() );
 		} else {
 			log.debug( 'Enqueueing connection acquisition. %d in the queue.', ( waiting.length + 1 ) );
 			waiting.push( cb );
@@ -26,9 +36,14 @@ function createPool( config, factory ) {
 	function initialize() {
 		if ( !closed ) {
 			for (var i = 0; i < nodeConnections.length; i++) {
-				newManager( i );
-				nodeConnections[ i ] = [];
+				var count = nodes[ i ].connections || 1;
+				for (var j = 0; j < count; j++) {
+					newManager( i );
+					nodeConnections[ i ] = [];
+				}
 			}
+		} else {
+			log.error( 'Initialization of connection pool was cancelled because the application has closed it. Call restart to re-establish the pool.' );
 		}
 	}
 
@@ -40,6 +55,7 @@ function createPool( config, factory ) {
 			} else {
 				log.debug( 'Saving connection to %s:%s for later', connection.config.host, connection.config.port );
 				nodeConnections[ connection.id ].push( connection );
+				// _.foldl( nodeConnections, function( x, y ) { return x + y.length; }, 0 );
 			}
 		}
 	}
@@ -103,7 +119,7 @@ function createPool( config, factory ) {
 			} );
 		},
 		addNode: function( node ) {
-			nodes.push( node );
+			nodes.push( _.merge( {}, defaultNode, node ) );
 			nodeConnections = new Array( nodes.length );
 		},
 		getNode: function() {

@@ -8,20 +8,19 @@ function SchemaManager( riak ) {
 }
 
 function checkSchema( riak, schemas, name ) {
+	function onSchema( reply ) {
+		log.debug( 'Schema "%s" exists', name );
+		return reply.schema ? reply.schema.content : undefined;
+	}
+	function noSchema( err ) {
+		log.warn( 'Failed to check schema "%s" with %s', name, err );
+		return undefined;
+	}
 	if ( schemas[ name ] ) {
 		return schemas[ name ];
 	} else {
-		return ( schemas[ name ] = riak.yzGetSchema( {
-			name: name
-		} )
-			.then( null, function( err ) {
-				log.warn( 'Failed to fetch schema %s with %s', name, err );
-				return undefined;
-			} )
-			.then( function( reply ) {
-				log.debug( 'Fetched schema %s', name );
-				return reply.schema ? reply.schema.content : undefined;
-			} ) );
+		return ( schemas[ name ] = riak.yzGetSchema( { name: name } ) )
+			.then( onSchema, noSchema );
 	}
 }
 
@@ -39,7 +38,7 @@ function setSchema( riak, schemas, name, schemaPath ) { // jshint ignore:line
 		if ( equal ) {
 			return when( true );
 		} else {
-			log.debug( 'Creating schema %s from file %s', name, schemaPath );
+			log.debug( 'Creating schema "%s" from file "%s"', name, schemaPath );
 			return riak.yzPutSchema( {
 				schema: {
 					name: name,

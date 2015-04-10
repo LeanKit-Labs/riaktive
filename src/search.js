@@ -140,12 +140,11 @@ function queryRequest( params, callback ) { // jshint ignore:line
 function search( riak, solr, index, body, params, includeStats ) {
 	return when.promise( function( resolve, reject, notify ) {
 		var query = createQuery( solr, body, params );
-		log.debug( 'Searching index %s with query %s', index, JSON.stringify( query ) );
 		solr.search( query, function( err, result ) {
 			if ( err ) {
-				log.error( 'Searching index %s with query %s failed with %s',
+				log.error( 'Searching index "%s" with query %j failed with %s',
 					index,
-					JSON.stringify( query ),
+					query,
 					err.stack );
 				reject( err );
 			} else {

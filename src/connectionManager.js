@@ -79,7 +79,7 @@ function connectionManager( index, config, factory, limit, wait ) {
 					this.emit( 'disconnected', this );
 					this.consecutiveFailures++;
 					if ( this.consecutiveFailures <= ( limit || 5 ) ) {
-						log.info( 'Will attempt to reconnect to %s:%s after %d ms', config.host, config.port, ( wait || 5000 ) );
+						log.info( 'Reconnection attempt to %s:%s in %d ms', config.host, config.port, ( wait || 5000 ) );
 						this.timeout = setTimeout( function() {
 							if ( this.state !== 'shutdown' && this.state !== 'closed' ) {
 								this.transition( 'connecting' );
@@ -95,7 +95,7 @@ function connectionManager( index, config, factory, limit, wait ) {
 					if ( this.timeout ) {
 						clearTimeout( this.timeout );
 					}
-					log.debug( 'entering shut down' );
+					log.debug( 'Entering shut down' );
 					this.emit( 'shutdown', this );
 				}
 			},

@@ -7,6 +7,10 @@
  * Make _indexes available during mutate
  * Add default timeout to ensure promises reject on connection failure
  * Use whistlepunk for logging
+ * Add ability to specific # of connections per node to start with in the pool
+ * Bug fix - connection pool doesn't cycle connections per node correctly
+ * Bug fix - correct how defaults are applied to node settings
+ * Simplify and clean-up log entries
  * Update/Cleanup README
 
 ## 0.1.*

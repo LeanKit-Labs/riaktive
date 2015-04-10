@@ -91,8 +91,9 @@ In addition to node definitions, you can provide `wait`, `retries` and `failed` 
 var riak = riaktive.connect( {
 	host: 'localhost', // default host address
 	port: 8097, // default PBC port
-	http: 8098 // default HTTP port (for Solr requests),
-	timeout: 2000 // default number of miliseconds riaktive will wait for a connection
+	http: 8098, // default HTTP port (for Solr requests)
+	timeout: 2000, // default number of miliseconds riaktive will wait for a connection
+	connections: 5 // default 5 live connections in the pool for this node
 } );
 ```
 
@@ -318,10 +319,7 @@ riaktive.configureLogging( {
 ```
 
 ## Roadmap
- * Provide strategies to control concurrent changes to documents (to better control sibling creation)
  * Automatically track a list of buckets created in a Riak bucket and provide a simple call to fetch them
- * Spin up multiple connections per node in the connection pool when demand exceeds available connections
- * Decrease the number of connections per node in the connection pool if demand decreases
 
 ## Missing
 If you see promise here but are disappointed about the lack of support for the following list, feel free to contribute:

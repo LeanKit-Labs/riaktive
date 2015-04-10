@@ -33,7 +33,7 @@ function setIndex( riak, indexes, name, schema ) { // jshint ignore:line
 		if ( equal ) {
 			return when( false );
 		} else {
-			log.debug( 'Creating index %s with schema %s', name, schema );
+			log.debug( 'Creating index "%s" with schema %s', name, schema );
 			return riak.yzPutIndex( {
 				index: {
 					name: name,

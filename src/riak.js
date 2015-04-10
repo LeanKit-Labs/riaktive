@@ -53,7 +53,18 @@ function buildPut( bucketName, key, obj, indexes, original ) {
 		content: content( obj, indices ),
 		vclock: original.vclock || obj.vclock
 	};
-	log.debug( 'Putting %s to %s in %s', JSON.stringify( request ), key, bucketName );
+	if ( request.content.value.length > 64 ) {
+		log.debug( 'Putting %d bytes to %s in "%s"',
+			request.content.value.length,
+			key,
+			bucketName );
+	} else {
+		log.debug( 'Putting %s to %s in "%s"',
+			request.content.value,
+			key,
+			bucketName );
+	}
+
 	return request;
 }
 
@@ -111,7 +122,14 @@ function get( riak, bucketName, key, includeDeleted ) {
 			return err;
 		} )
 		.then( function( reply ) {
-			log.debug( 'Get %s in %s returned %s (raw)', key, bucketName, JSON.stringify( reply ) );
+			log.debug( 'Get %s in "%s" returned %d documents with %d bytes',
+				key,
+				bucketName,
+				reply.content.length,
+				_.foldl( reply.content, function( x, y ) {
+					return x + y.value.length;
+				}, 0 )
+			);
 			var docs = scrubDocs( reply, includeDeleted );
 			if ( _.isEmpty( docs ) ) {
 				return undefined;
@@ -196,37 +214,35 @@ function includeDeleted( flag ) {
 }
 
 function mutate( riak, bucketName, key, mutateFn ) {
-	return get( riak, bucketName, key )
-		.then( null, function() {
-			throw new Error( 'Cannot mutate - no document with key "' + key + '" in bucket "' + bucketName + '"' );
-		} )
-		.then( function( original ) {
-			if ( _.isArray( original ) ) {
-				throw new Error( 'Cannot mutate - siblings exist for key "' + key + '" in bucket "' + bucketName + '"' );
+	function noDocument() {
+		throw new Error( 'Cannot mutate - no document with key "' + key + '" in bucket "' + bucketName + '"' );
+	}
+	function onDocument( original ) {
+		if ( _.isArray( original ) ) {
+			throw new Error( 'Cannot mutate - siblings exist for key "' + key + '" in bucket "' + bucketName + '"' );
+		} else {
+			var mutatis = mutateFn( _.cloneDeep( original ) );
+			var changes = _.omit( mutatis, 'vtag', 'vlock' );
+			var origin = _.omit( original, 'vtag', 'vlock' );
+			if ( _.isEqual( changes, origin ) ) {
+				log.debug( 'No changes to document %s in bucket "%s"', key, bucketName );
+				return original;
 			} else {
-				var mutatis = mutateFn( _.cloneDeep( original ) );
-				if ( _.isEqual( _.omit( mutatis, 'vtag', 'vclock' ), _.omit( original, 'vtag', 'vclock' ) ) ) {
-					log.debug( 'no changes to document %s in bucket %s', key, bucketName );
-					return original;
-				} else {
-					mutatis.vclock = original.vclock;
-					log.debug( 'mutated key %s in bucket %s to %s',
-						key, bucketName,
-						JSON.stringify( _.omit( mutatis, 'vtag', 'vclock' ) )
-					);
-					return put( riak, undefined, bucketName, key, mutatis )
-						.then( function() {
-							return mutatis;
-						} );
-				}
+				mutatis.vclock = original.vclock;
+				log.debug( 'Mutated document at key %s in bucket "%s"', key, bucketName );
+				return put( riak, undefined, bucketName, key, mutatis )
+					.then( function() {
+						return mutatis;
+					} );
 			}
-		} )
-		.then( null, function( err ) {
-			return new Error( 'Mutate for key "' + key + '" in bucket "' + bucketName + '" failed with: ' + err.stack );
-		} )
-		.catch( function( err ) {
-			return new Error( 'Mutate for key "' + key + '" in bucket "' + bucketName + '" failed with: ' + err.stack );
-		} );
+		}
+	}
+	function onError( err ) {
+		return new Error( 'Mutate for key "' + key + '" in bucket "' + bucketName + '" failed with: ' + err.stack );
+	}
+	return get( riak, bucketName, key )
+		.then( onDocument, noDocument )
+		.catch( onError );
 }
 
 function parseIndexes( doc, obj ) {
@@ -319,11 +335,11 @@ function readBucket( riak, bucketName ) {
 	bucketName = _.isObject( bucketName ) ? bucketName.bucketName : bucketName;
 	return riak.getBucket( { bucket: bucketName } )
 		.then( null, function( err ) {
-			log.error( 'Failed to read bucket properties for %s with %s', bucketName, err.stack );
+			log.error( 'Failed to read bucket properties for "%s" with %s', bucketName, err.stack );
 			return {};
 		} )
 		.then( function( bucket ) {
-			log.debug( 'Read bucket properties for %s: %s', bucketName, bucket.props || {} );
+			log.debug( 'Read bucket properties for "%s": %j', bucketName, bucket.props || {} );
 			return bucket.props || {};
 		} );
 }

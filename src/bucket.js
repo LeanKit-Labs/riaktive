@@ -69,10 +69,10 @@ function Bucket( bucket, options, riak, createBucket ) {
 		},
 		_create: function() {
 			var self = this;
-			log.debug( 'Getting bucket props for %s', bucketName );
+			log.debug( 'Getting bucket props for "%s"', bucketName );
 			api.readBucket( riak, bucketName )
 				.then( function( props ) {
-					log.debug( 'Read props %s from bucket %s', JSON.stringify( props ), bucketName );
+					log.debug( 'Read props %j from bucket "%s"', props, bucketName );
 					var difference = diff( props, _.omit( options, 'schema', 'schemaPath' ) );
 					if ( _.keys( difference ).length > 0 ) {
 						riak.setBucket( { bucket: bucketName, props: difference } )
@@ -87,7 +87,7 @@ function Bucket( bucket, options, riak, createBucket ) {
 					}
 				} )
 				.then( null, function( err ) {
-					log.error( 'failed to read props for bucket %s with %s', bucketName, err.stack );
+					log.error( 'Failed to read props for bucket "%s" with %s', bucketName, err.stack );
 				} );
 		},
 		initialState: 'checkingSchema',
@@ -97,11 +97,11 @@ function Bucket( bucket, options, riak, createBucket ) {
 					this._create();
 				},
 				'bucket.asserted': function() {
-					log.debug( 'Bucket "%s" created with %s', bucketName, JSON.stringify( options ) );
+					log.debug( 'Bucket "%s" created with %j', bucketName, options );
 					this.transition( 'ready' );
 				},
 				'bucket.failed': function( err ) {
-					log.error( 'Bucket create for %s failed with %s', bucketName, err );
+					log.error( 'Bucket create for "%s" failed with %s', bucketName, err );
 				},
 				operate: function( /* call */ ) {
 					this.deferUntilTransition( 'ready' );
@@ -110,14 +110,14 @@ function Bucket( bucket, options, riak, createBucket ) {
 			checkingSchema: {
 				_onEnter: function() {
 					if ( options.schema ) {
-						log.debug( 'Checking for schema', options.schema );
+						log.debug( 'Checking for schema "%s"', options.schema );
 						if ( options.schema && options.schemaPath ) {
 							this._assertSchema( options.schema, options.schemaPath );
 						} else {
 							this.transition( 'checkingIndex' );
 						}
 					} else {
-						log.debug( 'No schema specified for bucket %s, skipping to create bucket', bucketName );
+						log.debug( 'No schema specified for bucket "%s", skipping to create bucket', bucketName );
 						this.transition( 'creating' );
 					}
 				},
@@ -126,7 +126,7 @@ function Bucket( bucket, options, riak, createBucket ) {
 					this.transition( 'checkingIndex' );
 				},
 				'schema.failed': function( err ) {
-					log.error( 'Schema assert for %s failed with %s', options.schema, err.stack );
+					log.error( 'Schema assert for "%s" failed with %s', options.schema, err.stack );
 				},
 				operate: function( /* call */ ) {
 					this.deferUntilTransition( 'ready' );
@@ -137,7 +137,7 @@ function Bucket( bucket, options, riak, createBucket ) {
 					if ( options.search_index && options.schema ) {
 						this._assertIndex( options.search_index, options.schema );
 					} else {
-						log.debug( 'Index or schema unspecified for bucket %s, skipping to create bucket', bucketName );
+						log.debug( 'Index or schema unspecified for bucket "%s", skipping to create bucket', bucketName );
 						this.transition( 'creating' );
 					}
 				},
@@ -146,7 +146,7 @@ function Bucket( bucket, options, riak, createBucket ) {
 					this.transition( 'creating' );
 				},
 				'index.failed': function( err ) {
-					log.error( 'Index assert for %s failed with %s', options.search_index, err );
+					log.error( 'Index assert for "%s" failed with %s', options.search_index, err );
 				},
 				operate: function( /* call */ ) {
 					this.deferUntilTransition( 'ready' );
@@ -154,12 +154,11 @@ function Bucket( bucket, options, riak, createBucket ) {
 			},
 			ready: {
 				operate: function( call ) {
-					log.debug( 'Operation: %s', JSON.stringify( call ) );
 					try {
 						api[ call.operation ].apply( undefined, call.argList )
 							.then( call.resolve, call.reject, call.notify );
 					} catch ( err ) {
-						log.error( 'Operation: %s failed with %s', JSON.stringify( call ), err );
+						log.error( 'Deferred operation "%s" failed with %s', call.operation, err );
 						call.reject( err );
 					}
 				}
