@@ -69,7 +69,7 @@ describe( 'bucketFsm', function() {
 
 	function proxyBucketFsm( index, schema ) {
 		var stubs = {
-			'./indexes.js': index || noOp,
+			'./indexManager.js': index || noOp,
 			'./schema.js': schema || noOp,
 			'debug': Debug
 		};
