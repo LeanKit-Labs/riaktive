@@ -3,3 +3,6 @@ tmp/
 spec/
 node_modules/
 coverage/
+.editorconfig
+.esformatter
+.jshintrc

@@ -129,8 +129,10 @@ function createPool( config, factory ) {
 			return matches.length ? matches[ 0 ].config : ( matches ? matches.config : undefined );
 		},
 		release: function( connection ) {
-			log.debug( 'Acquisition for connection to %s:%s has been released.', connection.config.host, connection.config.port );
-			onConnection( connection );
+			if ( connection ) {
+				log.debug( 'Acquisition for connection to %s:%s has been released.', connection.config.host, connection.config.port );
+				onConnection( connection );
+			}
 		},
 		restart: reset
 	};
