@@ -4,7 +4,7 @@ var _ = require( 'lodash' );
 var http = require( 'http' );
 var createApi = require( './riak.js' ).createIndex;
 var SolrError = require( '../node_modules/solr-client/lib/error/solr-error.js' );
-var log = require( './log' )( 'search' );
+var log = require( './log' )( 'riaktive.search' );
 
 function createClient( node, index ) {
 	var solr = solrClient.createClient( {
@@ -60,7 +60,7 @@ function createResponseHandle( callback ) {
 
 		res.on( 'end', function() {
 			if ( res.statusCode !== 200 ) {
-				err = new SolrError( res.statusCode, buffer );
+				err = new SolrError( { headers: {} }, res, buffer );
 				if ( callback ) {
 					callback( err, null );
 				}
@@ -126,9 +126,7 @@ function queryRequest( params, callback ) { // jshint ignore:line
 		};
 		options.headers = headers;
 	}
-
-	var callbackResponse = createResponseHandle( callback );
-	var request = http.get( options, callbackResponse );
+	var request = http.get( options, createResponseHandle( callback ) );
 
 	request.on( 'error', function( err ) {
 		if ( callback ) {
@@ -157,14 +155,18 @@ function search( riak, solr, index, body, params, includeStats ) {
 						docs.push( doc );
 					} )
 					.done( function() {
+						var sorted = [];
+						_.each( matches, function( id ) {
+							sorted.push( _.where( docs, { id: id.key } )[ 0 ] );
+						} );
 						var response = includeStats
-							? { docs: docs,
+							? { docs: sorted,
 								total: result.response.numFound,
 								start: result.response.start,
 								maxScore: result.response.maxScore,
 								qTime: result.responseHeader.QTime
 							}
-							: docs;
+							: sorted;
 						resolve( response );
 					} );
 			}
