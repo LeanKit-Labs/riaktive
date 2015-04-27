@@ -2,7 +2,7 @@ var _ = require( 'lodash' );
 var when = require( 'when' );
 var machina = require( 'machina' );
 var IndexManager = require( './indexManager.js' );
-var SchemaManager = require( './schema.js' );
+var SchemaManager = require( './schemaManager.js' );
 var debug = require( 'debug' )( 'riaktive:bucket' );
 var schemas, index;
 
