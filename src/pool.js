@@ -1,6 +1,6 @@
 var _ = require( 'lodash' );
 var connectionManager = require( './connectionManager' );
-var log = require( './log' )( 'pool' );
+var log = require( './log' )( 'riaktive.pool' );
 
 var defaultNode = {
 	host: 'localhost',

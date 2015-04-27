@@ -1,5 +1,5 @@
 var when = require( 'when' );
-var log = require( './log' )( 'indexes' );
+var log = require( './log' )( 'riaktive.indexes' );
 
 var IndexManager = function( riak ) {
 	this.indexes = {};

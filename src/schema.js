@@ -1,6 +1,6 @@
 var fs = require( 'fs' );
 var when = require( 'when' );
-var log = require( './log' )( 'schema' );
+var log = require( './log' )( 'riaktive.schema' );
 
 function SchemaManager( riak ) {
 	this.schemas = {};

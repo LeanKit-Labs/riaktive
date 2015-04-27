@@ -1,6 +1,6 @@
 var _ = require( 'lodash' );
 var when = require( 'when' );
-var log = require( './log' )( 'api' );
+var log = require( './log' )( 'riaktive.api' );
 
 function buildIndexQuery( bucketName, index, start, finish, limit, continuation ) {
 	if ( _.isObject( index ) ) {

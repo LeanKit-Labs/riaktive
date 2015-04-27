@@ -3,7 +3,7 @@ var when = require( 'when' );
 var machina = require( 'machina' );
 var IndexManager = require( './indexes.js' );
 var SchemaManager = require( './schema.js' );
-var log = require( './log' )( 'bucket' );
+var log = require( './log' )( 'riaktive.bucket' );
 var schemas, index;
 
 function diff( one, two ) {

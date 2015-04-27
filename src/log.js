@@ -1,38 +1,44 @@
 var _ = require( 'lodash' );
 var postal = require( 'postal' );
 var logFn = require( 'whistlepunk' );
-var log = configure( {} );
+var logger = logFn( postal, {} );
 var logs = {};
+var topics = [];
 
 function configure( config ) {
 	var envDebug = !!process.env.DEBUG;
 	if ( envDebug ) {
-		return logFn( postal, { adapters: { debug: { level: 5 } } } );
+		logger = logFn( postal, { adapters: { debug: { level: 5 } } } );
 	} else {
-		return logFn( postal, config );
+		logger = logFn( postal, config );
+	}
+
+	_.each( logs, function( log ) {
+		log.reset();
+	} );
+	logs = {};
+	_.each( topics, createLog );
+}
+
+function createLog( topic ) {
+	if ( !_.contains( topics, topic ) && !logs[ topic ] ) {
+		var log = logger( topic );
+		if ( logs[ topic ] ) {
+			logs[ topic ].reset();
+		}
+		topics.push( log );
+		logs[ topic ] = log;
+		return log;
+	} else {
+		return logs[ topic ];
 	}
 }
 
-function proxyLog( logName ) {
-	var lg = logs[ logName ];
-	return {
-		debug: lg.debug.bind( lg ),
-		info: lg.info.bind( lg ),
-		warn: lg.warn.bind( lg ),
-		error: lg.error.bind( lg )
-	};
-}
-
-module.exports = function( config ) {
-	if ( !_.isString( config ) || ( !config && !log ) ) {
-		log = configure( config || {} );
-		logs.bucket = log( 'riaktive.bucket' );
-		logs.connection = log( 'riaktive.connectionManager' );
-		logs.indexes = log( 'riaktive.index' );
-		logs.pool = log( 'riaktive.pool' );
-		logs.api = log( 'riaktive.api' );
-		logs.schema = log( 'riaktive.schema' );
-		logs.search = log( 'riaktive.search' );
+module.exports = function( config, ns ) {
+	if ( typeof config === 'string' ) {
+		ns = config;
+	} else {
+		configure( config );
 	}
-	return _.isString( config ) ? proxyLog( config ) : proxyLog;
+	return ns ? createLog( ns ) : createLog;
 };
