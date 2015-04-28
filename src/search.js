@@ -2,8 +2,8 @@ var solrClient = require( 'solr-client' );
 var when = require( 'when' );
 var _ = require( 'lodash' );
 var http = require( 'http' );
-var createApi = require( './riak.js' ).createIndex;
-var SolrError = require('../node_modules/solr-client/lib/error/solr-error.js');
+var createApi = require( './riakApi.js' ).createIndex;
+var SolrError = require( '../node_modules/solr-client/lib/error/solr-error.js' );
 
 function createClient( node, index ) {
 	var solr = solrClient.createClient( {
@@ -18,65 +18,65 @@ function createClient( node, index ) {
 
 function createQuery( solr, body, params ) {
 	var query = solr.createQuery().set().q( body ),
-			useEdis = false;
+		useEdis = false;
 
-		if ( params ) {
-			if ( params.start ) {
-				query = query.start( params.start );
-			}
-			if ( params.rows ) {
-				query = query.rows( params.rows );
-			}
-			if ( params.sort ) {
-				query = query.sort( params.sort );
-			}
-			if ( params.factors ) {
-				useEdis = true;
-				query = query.qf( params.factors );
-			}
-			if ( params.minimumMatch ) {
-				useEdis = true;
-				query = query.mm( params.minimumMatch );
-			}
-			if ( params.boost ) {
-				useEdis = true;
-				query = query.boost( params.boost );
-			}
-			if( useEdis ) {
-				query = query.edismax();
-			}
+	if ( params ) {
+		if ( params.start ) {
+			query = query.start( params.start );
 		}
+		if ( params.rows ) {
+			query = query.rows( params.rows );
+		}
+		if ( params.sort ) {
+			query = query.sort( params.sort );
+		}
+		if ( params.factors ) {
+			useEdis = true;
+			query = query.qf( params.factors );
+		}
+		if ( params.minimumMatch ) {
+			useEdis = true;
+			query = query.mm( params.minimumMatch );
+		}
+		if ( params.boost ) {
+			useEdis = true;
+			query = query.boost( params.boost );
+		}
+		if ( useEdis ) {
+			query = query.edismax();
+		}
+	}
 	return query;
 }
 
 function createResponseHandle( callback ) {
 	return function( res ) {
-			var buffer = '';
-			var err = null;
-			res.on( 'data', function( chunk ) {
-				buffer += chunk;
-			} );
+		var buffer = '';
+		var err = null;
+		res.on( 'data', function( chunk ) {
+			buffer += chunk;
+		} );
 
-			res.on( 'end', function() {
-				if ( res.statusCode !== 200 ) {
-					err = new SolrError( res.statusCode, buffer );
+		res.on( 'end', function() {
+			if ( res.statusCode !== 200 ) {
+				err = new SolrError( res.statusCode, buffer );
+				if ( callback ) {
+					callback( err, null );
+				}
+			} else {
+				var data;
+				try {
+					data = JSON.parse( buffer );
+				} catch (error) {
+					err = error;
+				} finally {
 					if ( callback ) {
-						callback( err, null );
-					}
-				} else {
-					var data;
-					try {
-						data = JSON.parse( buffer );
-					} catch ( error ) {
-						err = error;
-					} finally {
-						if ( callback ) {
-							callback( err, data );
-						}
+						callback( err, data );
 					}
 				}
-			} );
-		};
+			}
+		} );
+	};
 }
 
 function parseResponse( response ) {
@@ -152,16 +152,16 @@ function search( riak, solr, body, params, includeStats ) {
 						docs.push( doc );
 					} )
 					.done( function() {
-						var response =  includeStats 
-										? { docs: docs, 
-											total:result.response.numFound,
-											start: result.response.start,
-											maxScore: result.response.maxScore,
-											qTime: result.responseHeader.QTime
-											 }
-										: docs;
+						var response = includeStats
+							? { docs: docs,
+								total: result.response.numFound,
+								start: result.response.start,
+								maxScore: result.response.maxScore,
+								qTime: result.responseHeader.QTime
+							}
+							: docs;
 						resolve( response );
-					});
+					} );
 			}
 		} );
 	} );

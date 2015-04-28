@@ -1,8 +1,8 @@
 var _ = require( 'lodash' );
 var when = require( 'when' );
 var machina = require( 'machina' );
-var IndexManager = require( './indexes.js' );
-var SchemaManager = require( './schema.js' );
+var IndexManager = require( './indexManager.js' );
+var SchemaManager = require( './schemaManager.js' );
 var debug = require( 'debug' )( 'riaktive:bucket' );
 var schemas, index;
 
@@ -17,10 +17,10 @@ function diff( one, two ) {
 	return result;
 }
 
-function Bucket( bucket, options, riak, createBucket ) {
+function fsm( name, options, riak, createBucket ) {
 	schemas = schemas || new SchemaManager( riak );
 	index = index || new IndexManager( riak );
-	var bucketName = _.isArray( bucket ) ? _.filter( bucket ).join( '_' ) : bucket;
+	var bucketName = _.isArray( name ) ? _.filter( name ).join( '_' ) : name;
 	var defaults = {
 		schema: undefined,
 		schemaPath: undefined,
@@ -49,10 +49,11 @@ function Bucket( bucket, options, riak, createBucket ) {
 
 		_assertIndex: function( name, schema ) {
 			index.create( name, schema )
-				.then( function( pause ) {
+				.then( function( waitMS ) {
+					waitMS = waitMS || 0;
 					setTimeout( function() {
 						this.handle( 'index.asserted' );
-					}.bind( this ), pause ? 10000 : 0 );
+					}.bind( this ), waitMS );
 				}.bind( this ) )
 				.then( null, function( err ) {
 					this.handle( 'index.failed', err );
@@ -72,8 +73,8 @@ function Bucket( bucket, options, riak, createBucket ) {
 			debug( 'Getting bucket props for %s', bucketName );
 			api.readBucket( riak, bucketName )
 				.then( function( props ) {
-					debug( 'Read props %s from bucket %s', JSON.stringify( props ), bucketName );
 					var difference = diff( props, _.omit( options, 'schema', 'schemaPath' ) );
+					debug( 'Read props %s from bucket %s; diff %s', JSON.stringify( props ), bucketName, JSON.stringify( difference ) );
 					if ( _.keys( difference ).length > 0 ) {
 						riak.setBucket( { bucket: bucketName, props: difference } )
 							.then( function() {
@@ -111,9 +112,10 @@ function Bucket( bucket, options, riak, createBucket ) {
 				_onEnter: function() {
 					if ( options.schema ) {
 						debug( 'Checking for schema', options.schema );
-						if ( options.schema && options.schemaPath ) {
+						if ( options.schemaPath ) {
 							this._assertSchema( options.schema, options.schemaPath );
 						} else {
+							debug( 'No schema path specified for bucket %s, skipping to check index', bucketName );
 							this.transition( 'checkingIndex' );
 						}
 					} else {
@@ -158,7 +160,7 @@ function Bucket( bucket, options, riak, createBucket ) {
 					try {
 						api[ call.operation ].apply( undefined, call.argList )
 							.then( call.resolve, call.reject, call.notify );
-					} catch ( err ) {
+					} catch (err) {
 						debug( 'Operation: %s failed with %s', JSON.stringify( call ), err );
 						call.reject( err );
 					}
@@ -178,4 +180,4 @@ function Bucket( bucket, options, riak, createBucket ) {
 	return machine;
 }
 
-module.exports = Bucket;
+module.exports = fsm;

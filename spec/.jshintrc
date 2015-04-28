@@ -94,7 +94,12 @@
 		"require",
 		"sinon",
 		"should",
-		"expect"
+		"expect",
+		"proxyquire",
+		"soon",
+		"NoOp",
+		"_",
+		"when"
 	],
 
 	// LEGACY

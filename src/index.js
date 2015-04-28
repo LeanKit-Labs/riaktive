@@ -3,8 +3,8 @@ var when = require( 'when' );
 var nodeWhen = require( 'when/node' );
 var riakpbc = require( 'riakpbc' );
 var RiakConnection = require( 'riakpbc/lib/connection' );
-var createBucket = require( './bucket.js' );
-var api = require( './riak.js' );
+var createBucketFsm = require( './bucketFsm.js' );
+var api = require( './riakApi.js' );
 var solr = require( './search.js' );
 var uuid = require( 'node-uuid' );
 var pool = require( './pool.js' );
@@ -72,7 +72,7 @@ function lift( client, nodeId ) { // jshint ignore:line
 		bucket: function( bucketName, options ) {
 			var bucket = this[ bucketName ];
 			if ( !bucket ) {
-				bucket = createBucket( bucketName, options || {}, this, api.createBucket, nodeId );
+				bucket = createBucketFsm( bucketName, options || {}, this, api.createBucket, nodeId );
 				this[ bucket.name ] = bucket;
 			}
 			if ( bucket.alias ) {

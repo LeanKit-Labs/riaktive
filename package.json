@@ -33,6 +33,7 @@
     "configya": "~0.2.0",
     "gulp": "~3.8.7",
     "gulp-mocha": "^0.5.2",
+    "proxyquire": "^1.4.0",
     "sinon": "^1.12.2"
   }
 }
