@@ -10,6 +10,8 @@
  * Add ability to specific # of connections per node to start with in the pool
  * Bug fix - connection pool doesn't cycle connections per node correctly
  * Bug fix - correct how defaults are applied to node settings
+ * Introduce custom errors for bucket operations (get, put, mutate)
+ * Include docs after multi-get operations
  * Simplify and clean-up log entries
  * Update/Cleanup README
 

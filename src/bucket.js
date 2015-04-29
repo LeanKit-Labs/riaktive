@@ -33,7 +33,7 @@ function Bucket( bucket, options, riak, createBucket ) {
 	var alias = options.alias;
 	options = _.omit( options, 'alias' );
 	options = _.defaults( options, defaults );
-	var Monad = machina.Fsm.extend( {
+	var machine = new machina.Fsm( {
 		alias: alias || bucketName,
 		name: bucketName,
 		operate: function( call, args ) {
@@ -167,7 +167,6 @@ function Bucket( bucket, options, riak, createBucket ) {
 	} );
 
 	var operations = [ 'del', 'get', 'getKeys', 'getByKeys', 'getKeysByIndex', 'getByIndex', 'mutate', 'put' ];
-	var machine = new Monad();
 	_.each( operations, function( name ) {
 		machine[ name ] = function() {
 			var list = Array.prototype.slice.call( arguments, 0 );

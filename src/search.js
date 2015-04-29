@@ -147,26 +147,21 @@ function search( riak, solr, index, body, params, includeStats ) {
 				reject( err );
 			} else {
 				var matches = parseResponse( result.response );
-				var docs = [];
 				riak.getByKeys( matches )
 					.then( null, reject )
 					.progress( function( doc ) {
 						notify( doc );
-						docs.push( doc );
 					} )
-					.done( function() {
-						var sorted = [];
-						_.each( matches, function( id ) {
-							sorted.push( _.where( docs, { id: id.key } )[ 0 ] );
-						} );
+					.done( function( docs ) {
 						var response = includeStats
-							? { docs: sorted,
+							? { keys: matches,
+								docs: docs,
 								total: result.response.numFound,
 								start: result.response.start,
 								maxScore: result.response.maxScore,
 								qTime: result.responseHeader.QTime
 							}
-							: sorted;
+							: docs;
 						resolve( response );
 					} );
 			}

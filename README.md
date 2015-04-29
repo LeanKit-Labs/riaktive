@@ -60,10 +60,16 @@ bucket.get( key )
 var list1 = [];
 var list2 = [];
 // retrieve all documents with the name 'kitteh'
-// results are only provided via the progress call
+// calls that result in multiple documents are
+// provided as they are read from Riak via the
+// progress call and as part of the final resolution
 bucket.getByIndex( 'name', 'kitteh' )
 	.progress( function( match ) {
 		list1.push( match );
+	} )
+	.then( function( results ) {
+		// results contains metadata as well as
+		// keys and docs properties
 	} );
 
 // retrieve all documents of the type 'felis catus'
@@ -172,8 +178,7 @@ Get retrieves a document by key.
 
 ```javascript
 riak.bucketName.get( 'someId' )
-	.then( function( doc ) {} )
-	.then( null, function( err ) {} );
+	.then( function( doc ) {}, function( err ) {} );
 ```
 
 ### put( [key], doc, [indexes] )
@@ -192,6 +197,10 @@ var docB = {
 };
 var docC = {
 	...
+	_indexes: {
+		indexA: 1,
+		indexB: 'stuff'
+	}
 };
 var indexes = {
 	indexOne: 1,
@@ -205,13 +214,11 @@ riak.bucketName.put( 'someId', docA, indexes )
 
 // put using an id property, no indexes
 riak.bucketName.put( docB )
-	.then( function( id ) {} )
-	.then( null, function( err ) {} );
+	.then( function( id ) {}, function( err ) {} );
 
-// put with a generated id, no indexes
+// put with a generated id, indexes attached to the document
 riak.bucketName.put( docC )
-	.then( function( id ) {} )
-	.then( null, function( err ) {} );
+	.then( function( id ) {}, function( err ) {} );
 ```
 
 ### mutate( key, mutateFn )
@@ -226,6 +233,9 @@ riak.bucketName.mutate( 'someKey', function( doc ) {
 	doc.newProperty = 'look, a new property';
 	doc.amount += 10; // just because
 	return doc;
+} )
+.then( function( doc ) {
+	// doc represents the changed document
 } );
 ```
 
@@ -274,7 +284,7 @@ This call will return the keys to the `.progress` callback of the resulting prom
 This call retrieves the documents (instead of only the keys) and passes each one as soon as it is retrieved to the `.progress` callback.
 
 ## Search (Solr)
-Riaktive supports the ability to define a schema and index per bucket and then query a Solr index and return documents to the result promise's `.progress` callback as they are retrieved. The promise's `.then` callback will also receive the search statistics from Solr on successful calls.
+Riaktive supports the ability to define a schema and index per bucket and then query a Solr index and return documents to the promise's `progress` callback as they are retrieved. The promise's `.then` callback will also receive the search statistics from Solr as well as the keys and documents via `keys` and `docs` properties on successful calls.
 
 ### Search schema
 When defining a bucket, the search schema is defined with the following properties:
@@ -300,8 +310,8 @@ As with buckets, the index must be defined first before accessing the index off 
 ```javascript
 var myBucketIndex = riak.index( 'mybucket_index' );
 myBucketIndex.search( { name: 'Waldo } )
-	.progress( function( matchingDoc ) { /* do something with match */ } )
-	.then( function( statistics ) { /* do something with stats */ } );
+	.progress( function( matchingDoc ) { /* do something with the match */ } )
+	.then( function( statistics ) { /* do something with stats or the list */ } );
 ```
 
 ## Logging
@@ -317,9 +327,6 @@ riaktive.configureLogging( {
 	}
 } );
 ```
-
-## Roadmap
- * Automatically track a list of buckets created in a Riak bucket and provide a simple call to fetch them
 
 ## Missing
 If you see promise here but are disappointed about the lack of support for the following list, feel free to contribute:

@@ -32,9 +32,9 @@ describe( 'Bucket Operations', function() {
 		// 14. get 'test-key-3' to verify single document
 		// 15 - 17. delete the keys created as part of this sequence
 		seq( [ function() {
-				return riak.getBucket( { bucket: 'mah_bucket' } );
-			}, function() {
 				return riak.mahBucket.put( 'test-key-1', { message: 'hulloo', aList: [ 'a', 'b', 'c' ] }, { lookup: 10 } );
+			}, function() {
+				return riak.getBucket( { bucket: 'mah_bucket' } );
 			}, function() {
 				return riak.mahBucket.get( 'test-key-1' );
 			}, function() {
@@ -83,10 +83,12 @@ describe( 'Bucket Operations', function() {
 				return bucket.get( 'test-key-3' );
 			}, function() {
 				return bucket.put( { special: 'generated key' } );
+			}, function() {
+				return riak.resetBucket( { bucket: 'mah_bucket' } );
 			}
 		] )
 			.then( function( results ) {
-				props = results[ 0 ].props;
+				props = results[ 1 ].props;
 				fetched = results[ 2 ];
 				mutated = results[ 3 ];
 				unchanged = results[ 4 ];
