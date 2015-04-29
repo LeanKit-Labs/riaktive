@@ -1,6 +1,6 @@
 {
   "name": "riaktive",
-  "version": "0.1.0-10",
+  "version": "0.2.0",
   "description": "A Riak API abstraction built on riakpbc that aims for simplicity.",
   "main": "src/index.js",
   "scripts": {
@@ -15,19 +15,19 @@
     "riak"
   ],
   "dependencies": {
-    "configya": "~0.2.0",
-    "debug": "^1.0.4",
-    "lodash": "~2.4.1",
-    "machina": "^0.4.0-1",
-    "monologue.js": "^0.2.1",
-    "node-uuid": "^1.4.1",
-    "riakpbc": "~2.1.0",
-    "sliver": "~0.1.0",
-    "solr-client": "~0.2.9",
-    "when": "~3.0.0"
+    "configya": "~0.2.1",
+    "lodash": "~3.7.0",
+    "machina": "~1.0.0",
+    "monologue.js": "~0.3.0",
+    "node-uuid": "~1.4.3",
+    "postal": "~1.0.2",
+    "riakpbc": "^2.1.0",
+    "solr-client": "~0.5.0",
+    "when": "~3.7.2",
+    "whistlepunk": "~0.3.1"
   },
   "devDependencies": {
-    "biggulp": "0.0.2",
+    "biggulp": "0.*.*",
     "chai": "^2.1.0",
     "chai-as-promised": "^4.2.0",
     "configya": "~0.2.0",

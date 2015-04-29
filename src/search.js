@@ -3,7 +3,8 @@ var when = require( 'when' );
 var _ = require( 'lodash' );
 var http = require( 'http' );
 var createApi = require( './riak.js' ).createIndex;
-var SolrError = require('../node_modules/solr-client/lib/error/solr-error.js');
+var SolrError = require( '../node_modules/solr-client/lib/error/solr-error.js' );
+var log = require( './log' )( 'riaktive.search' );
 
 function createClient( node, index ) {
 	var solr = solrClient.createClient( {
@@ -18,65 +19,65 @@ function createClient( node, index ) {
 
 function createQuery( solr, body, params ) {
 	var query = solr.createQuery().set().q( body ),
-			useEdis = false;
+		useEdis = false;
 
-		if ( params ) {
-			if ( params.start ) {
-				query = query.start( params.start );
-			}
-			if ( params.rows ) {
-				query = query.rows( params.rows );
-			}
-			if ( params.sort ) {
-				query = query.sort( params.sort );
-			}
-			if ( params.factors ) {
-				useEdis = true;
-				query = query.qf( params.factors );
-			}
-			if ( params.minimumMatch ) {
-				useEdis = true;
-				query = query.mm( params.minimumMatch );
-			}
-			if ( params.boost ) {
-				useEdis = true;
-				query = query.boost( params.boost );
-			}
-			if( useEdis ) {
-				query = query.edismax();
-			}
+	if ( params ) {
+		if ( params.start ) {
+			query = query.start( params.start );
 		}
+		if ( params.rows ) {
+			query = query.rows( params.rows );
+		}
+		if ( params.sort ) {
+			query = query.sort( params.sort );
+		}
+		if ( params.factors ) {
+			useEdis = true;
+			query = query.qf( params.factors );
+		}
+		if ( params.minimumMatch ) {
+			useEdis = true;
+			query = query.mm( params.minimumMatch );
+		}
+		if ( params.boost ) {
+			useEdis = true;
+			query = query.boost( params.boost );
+		}
+		if ( useEdis ) {
+			query = query.edismax();
+		}
+	}
 	return query;
 }
 
 function createResponseHandle( callback ) {
 	return function( res ) {
-			var buffer = '';
-			var err = null;
-			res.on( 'data', function( chunk ) {
-				buffer += chunk;
-			} );
+		var buffer = '';
+		var err = null;
+		res.on( 'data', function( chunk ) {
+			buffer += chunk;
+		} );
 
-			res.on( 'end', function() {
-				if ( res.statusCode !== 200 ) {
-					err = new SolrError( res.statusCode, buffer );
+		res.on( 'end', function() {
+			if ( res.statusCode !== 200 ) {
+				err = new SolrError( { headers: {} }, res, buffer );
+				if ( callback ) {
+					callback( err, null );
+				}
+			} else {
+				var data;
+				try {
+					data = JSON.parse( buffer );
+				} catch ( error ) {
+					err = error;
+				} finally {
 					if ( callback ) {
-						callback( err, null );
-					}
-				} else {
-					var data;
-					try {
-						data = JSON.parse( buffer );
-					} catch ( error ) {
-						err = error;
-					} finally {
-						if ( callback ) {
-							callback( err, data );
-						}
+						callback( err, data );
 					}
 				}
-			} );
-		};
+			}
+		} );
+	};
 }
 
 function parseResponse( response ) {
@@ -125,9 +126,7 @@ function queryRequest( params, callback ) { // jshint ignore:line
 		};
 		options.headers = headers;
 	}
-
-	var callbackResponse = createResponseHandle( callback );
-	var request = http.get( options, callbackResponse );
+	var request = http.get( options, createResponseHandle( callback ) );
 
 	request.on( 'error', function( err ) {
 		if ( callback ) {
@@ -136,32 +135,40 @@ function queryRequest( params, callback ) { // jshint ignore:line
 	} );
 }
 
-function search( riak, solr, body, params, includeStats ) {
-	return when.promise( function( resolve, reject, notify ) {
+function search( riak, solr, index, body, params, includeStats, progress ) {
+	return when.promise( function( resolve, reject ) {
+		if ( _.isFunction( includeStats ) ) {
+			progress = includeStats;
+			includeStats = false;
+		} else if ( _.isFunction( params ) ) {
+			progress = params;
+			params = undefined;
+			includeStats = false;
+		}
 		var query = createQuery( solr, body, params );
+		var notify = progress || _.noop;
 		solr.search( query, function( err, result ) {
 			if ( err ) {
+				log.error( 'Searching index "%s" with query %j failed with %s',
+					index,
+					query,
+					err.stack );
 				reject( err );
 			} else {
+				function onDocs( docs ) {
+					var response = includeStats
+						? { keys: matches,
+							docs: docs,
+							total: result.response.numFound,
+							start: result.response.start,
+							maxScore: result.response.maxScore,
+							qTime: result.responseHeader.QTime
+						} : docs;
+					resolve( response );
+				}
 				var matches = parseResponse( result.response );
-				var docs = [];
-				riak.getByKeys( matches )
-					.then( null, reject )
-					.progress( function( doc ) {
-						notify( doc );
-						docs.push( doc );
-					} )
-					.done( function() {
-						var response =  includeStats 
-										? { docs: docs, 
-											total:result.response.numFound,
-											start: result.response.start,
-											maxScore: result.response.maxScore,
-											qTime: result.responseHeader.QTime
-											 }
-										: docs;
-						resolve( response );
-					});
+				riak.getByKeys( matches, notify )
+					.then( onDocs, reject );
 			}
 		} );
 	} );
@@ -170,5 +177,5 @@ function search( riak, solr, body, params, includeStats ) {
 module.exports = function( riak, index ) {
 	var api = createApi( riak );
 	var solr = createClient( riak.getNode(), index );
-	return { search: search.bind( undefined, api, solr ) };
+	return { search: search.bind( undefined, api, solr, index ) };
 };

@@ -1,3 +1,4 @@
+require( './log' )();
 var _ = require( 'lodash' );
 var when = require( 'when' );
 var nodeWhen = require( 'when/node' );
@@ -8,10 +9,14 @@ var api = require( './riak.js' );
 var solr = require( './search.js' );
 var uuid = require( 'node-uuid' );
 var pool = require( './pool.js' );
+var idStrategy = uuid.v4;
+
+function configureLogging( logConfig ) {
+	require( './log' )( logConfig );
+}
 
 function connect( options ) {
 	var nodes = [];
-	var nodeId;
 	var normalized = {};
 	if ( _.isArray( options ) ) {
 		nodes = options;
@@ -24,33 +29,28 @@ function connect( options ) {
 			nodes = [ options ];
 			normalized = { nodes: nodes };
 		}
-		nodeId = options.nodeId;
-	}
-
-	if ( !nodeId ) {
-		nodeId = uuid.v4();
 	}
 
 	var defaultNode = {
 		host: 'localhost',
 		port: 8087,
 		http: 8098,
-		connectTimeout: 2000
+		connectTimeout: 2000,
+		connections: 5
 	};
 
 	var client = riakpbc.createClient( {
 		nodes: [],
-		connectTimeout: options.timeout
+		connectTimeout: options.timeout || 2000
 	} );
 
 	normalized.nodes = _.map( normalized.nodes, function( n ) {
 		n.connectTimeout = n.timeout;
 		delete n.timeout;
-		return n;
+		return _.merge( {}, defaultNode, n );
 	} );
 
 	client.pool = pool( normalized, function( node ) {
-		var opts = _.pick( _.defaults( node, defaultNode ), [ 'host', 'port' ] );
 		return when.promise( function( resolve, reject ) {
 			var conn = new RiakConnection( node );
 			conn.connect( function( err ) {
@@ -63,16 +63,16 @@ function connect( options ) {
 		} );
 	} );
 
-	return lift( client, nodeId );
+	return lift( client );
 }
 
 // this is here to convert Node style callbacks to promises
-function lift( client, nodeId ) { // jshint ignore:line
+function lift( client ) { // jshint ignore:line
 	var lifted = {
 		bucket: function( bucketName, options ) {
 			var bucket = this[ bucketName ];
 			if ( !bucket ) {
-				bucket = createBucket( bucketName, options || {}, this, api.createBucket, nodeId );
+				bucket = createBucket( bucketName, options || {}, this, api.createBucket.bind( api, idStrategy ) );
 				this[ bucket.name ] = bucket;
 			}
 			if ( bucket.alias ) {
@@ -129,18 +129,20 @@ function lift( client, nodeId ) { // jshint ignore:line
 		connect: nodeWhen.lift( client.connect ).bind( client ),
 		disconnect: nodeWhen.lift( client.disconnect ).bind( client ),
 		getBucket: safeLift( client.getBucket.bind( client ) ),
-		getKeys: function( params ) {
-			return when.promise( function( resolve, reject, progress ) {
+		getKeys: function( params, progress ) {
+			var notify = progress || _.noop;
+			return when.promise( function( resolve, reject ) {
 				var stream = client.getKeys( params );
-				stream.on( 'data', progress );
+				stream.on( 'data', notify );
 				stream.on( 'error', reject );
 				stream.on( 'end', resolve );
 			} );
 		},
-		getIndex: function( params ) {
-			return when.promise( function( resolve, reject, progress ) {
+		getIndex: function( params, progress ) {
+			var notify = progress || _.noop;
+			return when.promise( function( resolve, reject ) {
 				var stream = client.getIndex( params );
-				stream.on( 'data', progress );
+				stream.on( 'data', notify );
 				stream.on( 'error', reject );
 				stream.on( 'end', resolve );
 			} );
@@ -164,4 +166,12 @@ function safeLift( fn ) { // jshint ignore:line
 	};
 }
 
-module.exports = { connect: connect };
+function setIdStrategy( idFn ) {
+	idStrategy = idFn;
+}
+
+module.exports = {
+	connect: connect,
+	configureLogging: configureLogging,
+	setIdStrategy: setIdStrategy
+};

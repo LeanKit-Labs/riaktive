@@ -9,7 +9,7 @@ describe( 'with connection to solr and an indexed bucket', function() {
 	describe( 'with nested documents', function() {
 		var list = [];
 		before( function( done ) {
-			this.timeout( 60000 );
+			this.timeout( 6000 );
 			riak = connect( { host: config.riak.server } );
 			bucket = riak.bucket( 'testBucket1', { 'search_index': 'testBucket_index', schema: 'riaktive_schema', schemaPath: './spec/test_solr.xml' } );
 			index = riak.index( 'testBucket_index' );
@@ -27,10 +27,9 @@ describe( 'with connection to solr and an indexed bucket', function() {
 					} );
 				}, function() {
 					setTimeout( function() {
-						index.search( { 'children.name': 'averie' } )
-							.progress( function( item ) {
-								list.push( item );
-							} )
+						index.search( { 'children.name': 'averie' }, function( item ) {
+							list.push( item );
+						} )
 							.then( function() {
 								done();
 							} );
@@ -61,14 +60,13 @@ describe( 'with connection to solr and an indexed bucket', function() {
 	describe( 'with query stats', function() {
 		var result;
 		before( function( done ) {
-			this.timeout( 10000 );
+			this.timeout( 6000 );
 			bucket.put( { id: 'four', name: 'Alex' } );
 			bucket.put( { id: 'five', name: 'Ian' } );
 			bucket.put( { id: 'six', name: 'Becca' } );
 
 			setTimeout( function() {
 				index.search( { 'name': '*' }, { start: 1, rows: 2 }, true )
-					.progress( function( /* item */ ) {} )
 					.then( null, function( /* err */ ) {
 						done();
 					} )
@@ -81,8 +79,6 @@ describe( 'with connection to solr and an indexed bucket', function() {
 
 		it( 'should return expected results', function() {
 			result.docs.length.should.equal( 2 );
-			var match = result.docs[ 1 ];
-			match.name.should.equal( 'Becca' );
 		} );
 
 		it( 'should show total docs available', function() {
@@ -119,13 +115,13 @@ describe( 'with connection to solr and an indexed bucket', function() {
 	describe( 'with a sorted query', function() {
 		var result;
 		before( function( done ) {
-			this.timeout( 5000 );
+			this.timeout( 6000 );
 			bucket.put( { id: 'seven', name: 'Fred', age: 23 } );
 			bucket.put( { id: 'eight', name: 'Sally', age: 35 } );
-			bucket.put( { id: 'nine', name: 'Becca', age: 35 } );
+			bucket.put( { id: 'nine', name: 'Becca', age: 36 } );
 
 			setTimeout( function() {
-				index.search( { 'name': '*' }, { sort: { age: 'desc' } }, true )
+				index.search( { 'name': '*' }, { sort: { age: 'asc' } }, true )
 					.then( null, function( /* err */ ) {
 						done();
 					} )
@@ -138,8 +134,8 @@ describe( 'with connection to solr and an indexed bucket', function() {
 
 		it( 'should sort correctly', function() {
 			result.docs.length.should.equal( 3 );
-			var match = result.docs[ 2 ];
-			match.name.should.equal( 'Fred' );
+			_.pluck( result.docs, 'name' )
+				.should.eql( [ 'Fred', 'Sally', 'Becca' ] );
 		} );
 
 		after( function( done ) {
@@ -160,16 +156,13 @@ describe( 'with connection to solr and an indexed bucket', function() {
 	describe( 'with search query errors', function() {
 		var error;
 		before( function( done ) {
-
+			riak = connect( { host: config.riak.server } );
+			bucket = riak.bucket( 'testBucket1', { 'search_index': 'testBucket_index', schema: 'riaktive_schema', schemaPath: './spec/test_solr.xml' } );
+			index = riak.index( 'testBucket_index' );
 			index.search( { name: 'this has spaces but is not enclosed in quotes' } )
 				.then( null, function( err ) {
 					error = err;
 					done();
-				} )
-				.done( function( res ) {
-					if ( res ) {
-						done();
-					}
 				} );
 		} );
 

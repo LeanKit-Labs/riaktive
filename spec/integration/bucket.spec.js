@@ -1,5 +1,6 @@
 require( '../setup.js' );
 var _ = require( 'lodash' );
+var when = require( 'when' );
 var seq = require( 'when/sequence' );
 var connect = require( '../../src/index.js' ).connect;
 var config = require( 'configya' )( { file: './spec/config.json' } );
@@ -8,7 +9,8 @@ describe( 'Bucket Operations', function() {
 	var riak, props, fetched, mutated, unchanged, siblings, resolved, tmp,
 		keys = [],
 		list1 = [],
-		list2 = [];
+		list2 = [],
+		toDelete = [ 'test-key-1', 'test-key-2', 'test-key-3' ];
 
 	before( function( done ) {
 		riak = connect( { host: config.riak.server } );
@@ -30,9 +32,9 @@ describe( 'Bucket Operations', function() {
 		// 14. get 'test-key-3' to verify single document
 		// 15 - 17. delete the keys created as part of this sequence
 		seq( [ function() {
-				return riak.getBucket( { bucket: 'mah_bucket' } );
-			}, function() {
 				return riak.mahBucket.put( 'test-key-1', { message: 'hulloo', aList: [ 'a', 'b', 'c' ] }, { lookup: 10 } );
+			}, function() {
+				return riak.getBucket( { bucket: 'mah_bucket' } );
 			}, function() {
 				return riak.mahBucket.get( 'test-key-1' );
 			}, function() {
@@ -49,22 +51,19 @@ describe( 'Bucket Operations', function() {
 			}, function() {
 				return bucket.get( 'test-key-1' );
 			}, function() {
-				return bucket.put( 'test-key-2', { message: 'hulloo to you too' }, { lookup: 11 } );
+				return bucket.put( { id: 'test-key-2', message: 'hulloo to you too' }, { lookup: 11 } );
 			}, function() {
-				return bucket.getKeysByIndex( 'lookup', 1, 20 )
-					.progress( function( data ) {
-						keys = data.concat( keys );
-					} );
+				return bucket.getKeysByIndex( 'lookup', 1, 20, function( data ) {
+					keys = keys.concat( data );
+				} );
 			}, function() {
-				return bucket.getByKeys( keys )
-					.progress( function( record ) {
-						list1.push( record );
-					} );
+				return bucket.getByKeys( keys, function( record ) {
+					list1.push( record );
+				} );
 			}, function() {
-				return bucket.getByIndex( 'lookup', 1, 20 )
-					.progress( function( record ) {
-						list2.push( record );
-					} );
+				return bucket.getByIndex( 'lookup', 1, 20, function( record ) {
+					list2.push( record );
+				} );
 			}, function() {
 				return bucket.put( 'test-key-3', { answer: 'nope' } );
 			}, function() {
@@ -80,24 +79,23 @@ describe( 'Bucket Operations', function() {
 			}, function() {
 				return bucket.get( 'test-key-3' );
 			}, function() {
-				return bucket.del( 'test-key-1' );
+				return bucket.put( { special: 'generated key' } );
 			}, function() {
-				return bucket.del( 'test-key-2' );
-			}, function() {
-				return bucket.del( 'test-key-3' );
+				return riak.resetBucket( { bucket: 'mah_bucket' } );
 			}
 		] )
 			.then( function( results ) {
-				props = results[ 0 ].props;
+				props = results[ 1 ].props;
 				fetched = results[ 2 ];
 				mutated = results[ 3 ];
 				unchanged = results[ 4 ];
 				siblings = results[ 12 ];
 				resolved = results[ 14 ];
+				toDelete.push( results[ 15 ] );
 				done();
 			} )
 			.catch( function( err ) {
-				console.log( 'failed with', err );
+				console.log( 'failed with', err.stack );
 				done();
 			} );
 	} );
@@ -129,7 +127,12 @@ describe( 'Bucket Operations', function() {
 	} );
 
 	it( 'should not persist unchanged document', function() {
-		unchanged.should.be.false;
+		_.omit( unchanged, '_indexes', 'vclock' ).should.eql( {
+			id: 'test-key-1',
+			subject: 'greeting',
+			message: 'hulloo',
+			aList: [ 'a', 'b', 'c' ]
+		} );
 	} );
 
 	it( 'should get key by index', function() {
@@ -155,7 +158,21 @@ describe( 'Bucket Operations', function() {
 		resolved.answer.should.equal( 'yarp' );
 	} );
 
+	it( 'should generated key if none are provided', function() {
+		toDelete[ 3 ].should.match( /^[0-9a-f]{8}[-][0-9a-f]{4}[-][0-9a-f]{4}[-][0-9a-f]{4}[-][0-9a-f]{12}$/ );
+	} );
+
 	after( function() {
-		riak.close();
+		return when.all(
+			_.map( toDelete, function( key ) {
+				return riak.mahBucket.del( key );
+			} )
+			)
+			.then( function() {
+				riak.close();
+			}, function() {
+					riak.close();
+				} );
+
 	} );
 } );

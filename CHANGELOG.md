@@ -1,3 +1,21 @@
+## 0.2.*
+
+### Current
+
+ * Replace sliver with pluggable idStrategy approach
+ * Update mutate to always return document (changed or not)
+ * Make _indexes available during mutate
+ * Remove deprecated `progress` support from promises
+ * Add default timeout to ensure promises reject on connection failure
+ * Use whistlepunk for logging
+ * Add ability to specific # of connections per node to start with in the pool
+ * Bug fix - connection pool doesn't cycle connections per node correctly
+ * Bug fix - correct how defaults are applied to node settings
+ * Introduce custom errors for bucket operations (get, put, mutate)
+ * Include docs after multi-get operations
+ * Simplify and clean-up log entries
+ * Update/Cleanup README
+
 ## 0.1.*
 
 ### prerelease 10

@@ -1,14 +1,33 @@
 var _ = require( 'lodash' );
 var when = require( 'when' );
-var debug = require( 'debug' )( 'riaktive:api' );
+var parallel = require( 'when/parallel' );
+var log = require( './log' )( 'riaktive.api' );
+var Errors = require( './errors' );
 
 function buildIndexQuery( bucketName, index, start, finish, limit, continuation ) {
+	var progressIndex = getProgressIndex( arguments );
 	if ( _.isObject( index ) ) {
-		start = start || index.start;
-		finish = finish || index.finish;
-		limit = limit || index.limit || index.max_results;
-		continuation = continuation || index.continuation;
-		index = index.index;
+		start = index.start;
+		finish = index.finish;
+		limit = index.limit || index.max_results;
+		continuation = index.continuation;
+		index = index.index || index.name;
+	} else {
+		if ( progressIndex > 3 || progressIndex < 0 ) {
+			finish = finish || index.finish;
+			if ( progressIndex > 4 || progressIndex < 0 ) {
+				limit = limit || index.limit || index.max_results;
+				if ( progressIndex > 5 || progressIndex < 0 ) {
+					continuation = continuation || index.continuation;
+				} else {
+					continuation = undefined;
+				}
+			} else {
+				limit = continuation = undefined;
+			}
+		} else {
+			finish = limit = continuation = undefined;
+		}
 	}
 	if ( index === '$key' || index === '$bucket' ) {
 		void 0; // esformatter trashes the entire file w/o this b/c empty blocks
@@ -53,16 +72,47 @@ function buildPut( bucketName, key, obj, indexes, original ) {
 		content: content( obj, indices ),
 		vclock: original.vclock || obj.vclock
 	};
-	debug( 'Putting %s to %s in %s', JSON.stringify( request ), key, bucketName );
+	if ( request.content.value.length > 64 ) {
+		log.debug( 'Putting %d bytes to %s in "%s"',
+			request.content.value.length,
+			key,
+			bucketName );
+	} else {
+		log.debug( 'Putting %s to "%s" in "%s"',
+			request.content.value,
+			key,
+			bucketName );
+	}
+
 	return request;
 }
 
-function content( obj, indexes ) { // jshint ignore:line
+function content( obj, indexes ) {
 	var tmp = { 'content_type': 'application/json', value: JSON.stringify( _.omit( obj, '_indexes' ) ) };
 	if ( indexes ) {
 		tmp.indexes = indexes;
 	}
 	return tmp;
+}
+
+function createBucket( idStrategy, riak, bucketName ) {
+	return {
+		del: del.bind( undefined, riak, bucketName ),
+		get: get.bind( undefined, riak, bucketName ),
+		getByKeys: getByBucketKeys.bind( undefined, riak, bucketName ),
+		getByIndex: getByIndex.bind( undefined, riak, bucketName ),
+		getKeys: getKeys.bind( undefined, riak, bucketName ),
+		getKeysByIndex: getKeysByIndex.bind( undefined, riak, bucketName ),
+		mutate: mutate.bind( undefined, riak, bucketName ),
+		put: put.bind( undefined, riak, idStrategy, bucketName ),
+		readBucket: readBucket.bind( undefined, riak, bucketName )
+	};
+}
+
+function createIndex( riak ) {
+	return {
+		getByKeys: getByKeys.bind( undefined, riak )
+	};
 }
 
 function del( riak, bucketName, key ) {
@@ -90,122 +140,155 @@ function get( riak, bucketName, key, includeDeleted ) {
 			return err;
 		} )
 		.then( function( reply ) {
-			debug( 'Get %s in %s returned %s (raw)', key, bucketName, JSON.stringify( reply ) );
-			var docs = scrubDocs( reply, includeDeleted );
-			if ( _.isEmpty( docs ) ) {
-				return undefined;
-			} else if ( docs.length === 1 ) {
-				return docs[ 0 ];
+			if ( reply.content ) {
+				log.debug( 'Get "%s" from "%s" returned %d documents with %d bytes',
+					key,
+					bucketName,
+					reply.content.length,
+					_.foldl( reply.content, function( x, y ) {
+						return x + y.value.length;
+					}, 0 )
+				);
+				var docs = scrubDocs( reply, includeDeleted );
+				if ( _.isEmpty( docs ) ) {
+					return undefined;
+				} else if ( docs.length === 1 ) {
+					return docs[ 0 ];
+				} else {
+					return docs;
+				}
 			} else {
-				return docs;
+				log.error( 'Get "%s" from "%s" return an empty document!', key, bucketName );
+				throw new Errors.EmptyResult( bucketName, key );
 			}
 		} );
 }
 
 function getByBucketKeys( riak, bucketName, keys, includeDeleted ) {
-	return when.promise( function( resolve, reject, notify ) {
-		var all = _.map( keys, function( key ) {
+	var notify = getProgressCallback( arguments );
+	var all = _.map( keys, function( key ) {
+		return function() {
 			return get( riak, bucketName, key, includeDeleted )
-				.then( notify );
-		} );
-		when.all( all ).then( resolve, reject );
+				.tap( notify );
+		};
 	} );
+	return parallel( all );
 }
 
 function getByKeys( riak, keys ) {
-	return when.promise( function( resolve, reject, notify ) {
-		var all = _.map( keys, function( id ) {
+	var notify = getProgressCallback( arguments );
+	var all = _.map( keys, function( id ) {
+		return function() {
 			return get( riak, id.bucket, id.key, includeDeleted )
-				.then( notify );
-		} );
-		when.all( all ).then( resolve, reject );
+				.tap( notify );
+		};
 	} );
+	return parallel( all );
 }
 
 function getByIndex( riak, bucketName, index, start, finish, limit, continuation ) {
-	return when.promise( function( resolve, reject, notify ) {
-		var promises = [];
-		getKeysByIndex( riak, bucketName, index, start, finish, limit, continuation )
-			.progress( function( keys ) {
-				_.each( keys, function( key ) {
-					promises.push(
-						get( riak, bucketName, key )
-							.then( notify )
-					);
+	var notify = getProgressCallback( arguments );
+	var promises = [];
+	function onDoc( keys ) {
+		_.each( keys, function( key ) {
+			promises.push(
+				get( riak, bucketName, key )
+					.tap( notify )
+			);
+		} );
+	}
+	return getKeysByIndex( riak, bucketName, index, start, finish, limit, continuation, onDoc )
+		.then( function( results ) {
+			log.debug( 'Resolving %d keys', promises.length );
+			return when.all( promises )
+				.then( function( docs ) {
+					results.docs = _.sortBy( docs, 'id' );
+					return results;
 				} );
-			} )
-			.then( function( next ) {
-				debug( 'Resolving %s keys', promises.length );
-				when.all( promises ).then( function() {
-					resolve( next );
-				} );
-			} );
-	} );
+		} );
 }
 
 function getKeys( riak, bucketName ) {
 	return riak.getKeys( { bucket: bucketName } );
 }
 
-function getKeysByIndex( riak, bucketName, index, start, finish, limit, continuation ) { // jshint ignore:line
+function getKeysByIndex( riak, bucketName, index, start, finish, limit, continuation ) {
 	var query = buildIndexQuery( bucketName, index, start, finish, limit, continuation );
 	var newContinuation;
-	debug( 'Requesting keys for %s', JSON.stringify( query ) );
-	return riak.getIndex( query )
+	var notify = getProgressCallback( arguments );
+	log.debug( 'Requesting keys for "%s"', JSON.stringify( query ) );
+	var keys = [];
+	function onKey( data ) {
+		if ( data ) {
+			if ( data.continuation ) {
+				newContinuation = data.continuation;
+			} else {
+				keys = keys.concat( data.keys );
+				_.each( data.keys, function( key ) {
+					notify( key );
+				} );
+			}
+		}
+		return data ? data.keys : [];
+	}
+	return riak.getIndex( query, onKey )
 		.then( function() {
 			if ( newContinuation ) {
 				query.continuation = newContinuation;
 			}
+			query.keys = keys;
 			return query;
-		} )
-		.progress( function( data ) {
-			if ( data ) {
-				if ( data.continuation ) {
-					newContinuation = data.continuation;
-				}
-			}
-			return data ? data.keys : [];
 		} );
 }
 
-function includeDeleted( flag ) { // jshint ignore:line
+function getProgressCallback( args ) {
+	return _.find( Array.prototype.slice.call( args ), _.isFunction ) || _.noop;
+}
+
+function getProgressIndex( args ) {
+	var list = Array.prototype.slice.call( args );
+	return _.findIndex( list, _.isFunction ) || list.length;
+}
+
+function includeDeleted( flag ) {
 	return function( doc ) {
 		return flag ? true : !doc.deleted;
 	};
 }
 
 function mutate( riak, bucketName, key, mutateFn ) {
-	return get( riak, bucketName, key )
-		.then( null, function() {
-			throw new Error( 'Cannot mutate - no document with key "' + key + '" in bucket "' + bucketName + '"' );
-		} )
-		.then( function( original ) {
-			if ( _.isArray( original ) ) {
-				throw new Error( 'Cannot mutate - siblings exist for key "' + key + '" in bucket "' + bucketName + '"' );
+	function noDocument() {
+		throw new Errors.MissingDocument( bucketName, key );
+	}
+	function onDocument( original ) {
+		if ( _.isArray( original ) ) {
+			throw new Errors.SiblingMutation( bucketName, key );
+		} else {
+			var mutatis = mutateFn( _.cloneDeep( original ) );
+			var changes = _.omit( mutatis, 'vtag', 'vlock' );
+			var origin = _.omit( original, 'vtag', 'vlock' );
+			if ( _.isEqual( changes, origin ) ) {
+				log.debug( 'No changes to document "%s" in "%s"', key, bucketName );
+				return original;
 			} else {
-				var mutatis = mutateFn( _.cloneDeep( original ) );
-				if ( _.isEqual( _.omit( mutatis, 'vtag', 'vclock' ), _.omit( original, 'vtag', 'vclock' ) ) ) {
-					debug( 'no changes to document %s in bucket %s', key, bucketName );
-					return false;
-				} else {
-					mutatis.vclock = original.vclock;
-					debug( 'mutated to %s', JSON.stringify( mutatis ) );
-					return put( riak, bucketName, key, mutatis )
-						.then( function() {
-							return mutatis;
-						} );
-				}
+				mutatis.vclock = original.vclock;
+				log.debug( 'Mutated document "%s" in "%s"', key, bucketName );
+				return put( riak, undefined, bucketName, key, mutatis )
+					.then( function() {
+						return mutatis;
+					} );
 			}
-		} )
-		.then( null, function( err ) {
-			return new Error( 'Mutate for key "' + key + '" in bucket "' + bucketName + '" failed with: ' + err.stack );
-		} )
-		.catch( function( err ) {
-			return new Error( 'Mutate for key "' + key + '" in bucket "' + bucketName + '" failed with: ' + err.stack );
-		} );
+		}
+	}
+	function onError( err ) {
+		return new Errors.MutationFailed( bucketName, key, err );
+	}
+	return get( riak, bucketName, key )
+		.then( onDocument, noDocument )
+		.catch( onError );
 }
 
-function parseIndexes( doc, obj ) { // jshint ignore:line
+function parseIndexes( doc, obj ) {
 	var collection = {};
 	if ( obj.indexes && !doc._indexes ) {
 		_.each( obj.indexes, function( index ) {
@@ -229,7 +312,7 @@ function parseIndexes( doc, obj ) { // jshint ignore:line
 	}
 }
 
-function processIndexes( list ) { // jshint ignore:line
+function processIndexes( list ) {
 	return _.flatten( _.map( list, function( val, key ) {
 		var isArray = _.isArray( val );
 		var sample = isArray ? val[ 0 ] : val;
@@ -250,23 +333,19 @@ function processIndexes( list ) { // jshint ignore:line
 	} ) );
 }
 
-function put( riak, bucketName, key, obj, indexes, getBeforePut ) { // jshint ignore:line
-	if ( !obj || _.isObject( key ) ) {
-		if ( indexes ) {
-			getBeforePut = indexes;
-		}
-		if ( obj ) {
-			indexes = processIndexes( obj );
-		}
+function put( riak, idStrategy, bucketName, key, obj, indexes, getBeforePut ) {
+	if ( _.isObject( key ) ) {
+		getBeforePut = indexes;
+		indexes = obj;
 		obj = key;
-		key = obj.id || riak.ids.getId();
-	} else if ( indexes ) {
+		key = undefined;
+	}
+	key = key || obj.id || idStrategy();
+	obj.id = obj.id || key;
+	indexes = indexes || obj._indexes;
+	if ( indexes ) {
 		indexes = processIndexes( indexes );
 	}
-	if ( _.isEmpty( indexes ) && obj._indexes ) {
-		indexes = processIndexes( obj._indexes );
-	}
-	obj.id = obj.id || key;
 
 	var getOriginal = function() {
 		var vclock = obj.vclock;
@@ -296,40 +375,21 @@ function put( riak, bucketName, key, obj, indexes, getBeforePut ) { // jshint ig
 }
 
 function readBucket( riak, bucketName ) {
+	bucketName = _.isObject( bucketName ) ? bucketName.bucketName : bucketName;
 	return riak.getBucket( { bucket: bucketName } )
 		.then( null, function( err ) {
-			debug( 'Failed to read bucket properties for %s with %s', bucketName, err.stack );
+			log.error( 'Failed to read bucket properties for "%s" with %s', bucketName, err.stack );
 			return {};
 		} )
 		.then( function( bucket ) {
-			debug( 'Read bucket properties for %s: %s', bucketName, bucket.props || {} );
+			log.debug( 'Read bucket properties for "%s": %j', bucketName, bucket.props || {} );
 			return bucket.props || {};
 		} );
 }
 
-function scrubDocs( reply, inclusive ) { // jshint ignore:line
+function scrubDocs( reply, inclusive ) {
 	var filtered = _.filter( reply.content, includeDeleted( inclusive ) );
 	return _.map( filtered, formatContent.bind( undefined, reply ) );
-}
-
-function createBucket( riak, bucketName ) {
-	return {
-		del: del.bind( undefined, riak, bucketName ),
-		get: get.bind( undefined, riak, bucketName ),
-		getByKeys: getByBucketKeys.bind( undefined, riak, bucketName ),
-		getByIndex: getByIndex.bind( undefined, riak, bucketName ),
-		getKeys: getKeys.bind( undefined, riak, bucketName ),
-		getKeysByIndex: getKeysByIndex.bind( undefined, riak, bucketName ),
-		mutate: mutate.bind( undefined, riak, bucketName ),
-		put: put.bind( undefined, riak, bucketName ),
-		readBucket: readBucket.bind( undefined, riak, bucketName )
-	};
-}
-
-function createIndex( riak ) {
-	return {
-		getByKeys: getByKeys.bind( undefined, riak )
-	};
 }
 
 exports.createBucket = createBucket;

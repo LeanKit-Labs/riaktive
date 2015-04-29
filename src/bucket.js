@@ -3,7 +3,7 @@ var when = require( 'when' );
 var machina = require( 'machina' );
 var IndexManager = require( './indexes.js' );
 var SchemaManager = require( './schema.js' );
-var debug = require( 'debug' )( 'riaktive:bucket' );
+var log = require( './log' )( 'riaktive.bucket' );
 var schemas, index;
 
 function diff( one, two ) {
@@ -33,7 +33,7 @@ function Bucket( bucket, options, riak, createBucket ) {
 	var alias = options.alias;
 	options = _.omit( options, 'alias' );
 	options = _.defaults( options, defaults );
-	var Monad = machina.Fsm.extend( {
+	var machine = new machina.Fsm( {
 		alias: alias || bucketName,
 		name: bucketName,
 		operate: function( call, args ) {
@@ -69,10 +69,10 @@ function Bucket( bucket, options, riak, createBucket ) {
 		},
 		_create: function() {
 			var self = this;
-			debug( 'Getting bucket props for %s', bucketName );
+			log.debug( 'Getting bucket props for "%s"', bucketName );
 			api.readBucket( riak, bucketName )
 				.then( function( props ) {
-					debug( 'Read props %s from bucket %s', JSON.stringify( props ), bucketName );
+					log.debug( 'Read props %j from bucket "%s"', props, bucketName );
 					var difference = diff( props, _.omit( options, 'schema', 'schemaPath' ) );
 					if ( _.keys( difference ).length > 0 ) {
 						riak.setBucket( { bucket: bucketName, props: difference } )
@@ -87,7 +87,7 @@ function Bucket( bucket, options, riak, createBucket ) {
 					}
 				} )
 				.then( null, function( err ) {
-					debug( 'failed to read props for bucket %s with %s', bucketName, err.stack );
+					log.error( 'Failed to read props for bucket "%s" with %s', bucketName, err.stack );
 				} );
 		},
 		initialState: 'checkingSchema',
@@ -97,11 +97,11 @@ function Bucket( bucket, options, riak, createBucket ) {
 					this._create();
 				},
 				'bucket.asserted': function() {
-					debug( 'Bucket "%s" created with %s', bucketName, JSON.stringify( options ) );
+					log.debug( 'Bucket "%s" created with %j', bucketName, options );
 					this.transition( 'ready' );
 				},
 				'bucket.failed': function( err ) {
-					debug( 'Bucket create for %s failed with %s', bucketName, err );
+					log.error( 'Bucket create for "%s" failed with %s', bucketName, err );
 				},
 				operate: function( /* call */ ) {
 					this.deferUntilTransition( 'ready' );
@@ -110,23 +110,23 @@ function Bucket( bucket, options, riak, createBucket ) {
 			checkingSchema: {
 				_onEnter: function() {
 					if ( options.schema ) {
-						debug( 'Checking for schema', options.schema );
+						log.debug( 'Checking for schema "%s"', options.schema );
 						if ( options.schema && options.schemaPath ) {
 							this._assertSchema( options.schema, options.schemaPath );
 						} else {
 							this.transition( 'checkingIndex' );
 						}
 					} else {
-						debug( 'No schema specified for bucket %s, skipping to create bucket', bucketName );
+						log.debug( 'No schema specified for bucket "%s", skipping to create bucket', bucketName );
 						this.transition( 'creating' );
 					}
 				},
 				'schema.asserted': function() {
-					debug( 'Schema "%s" asserted', options.schema );
+					log.debug( 'Schema "%s" asserted', options.schema );
 					this.transition( 'checkingIndex' );
 				},
 				'schema.failed': function( err ) {
-					debug( 'Schema assert for %s failed with %s', options.schema, err.stack );
+					log.error( 'Schema assert for "%s" failed with %s', options.schema, err.stack );
 				},
 				operate: function( /* call */ ) {
 					this.deferUntilTransition( 'ready' );
@@ -137,16 +137,16 @@ function Bucket( bucket, options, riak, createBucket ) {
 					if ( options.search_index && options.schema ) {
 						this._assertIndex( options.search_index, options.schema );
 					} else {
-						debug( 'Index or schema unspecified for bucket %s, skipping to create bucket', bucketName );
+						log.debug( 'Index or schema unspecified for bucket "%s", skipping to create bucket', bucketName );
 						this.transition( 'creating' );
 					}
 				},
 				'index.asserted': function() {
-					debug( 'Index "%s" created', options.search_index );
+					log.debug( 'Index "%s" created', options.search_index );
 					this.transition( 'creating' );
 				},
 				'index.failed': function( err ) {
-					debug( 'Index assert for %s failed with %s', options.search_index, err );
+					log.error( 'Index assert for "%s" failed with %s', options.search_index, err );
 				},
 				operate: function( /* call */ ) {
 					this.deferUntilTransition( 'ready' );
@@ -154,12 +154,11 @@ function Bucket( bucket, options, riak, createBucket ) {
 			},
 			ready: {
 				operate: function( call ) {
-					debug( 'Operation: %s', JSON.stringify( call ) );
 					try {
 						api[ call.operation ].apply( undefined, call.argList )
 							.then( call.resolve, call.reject, call.notify );
 					} catch ( err ) {
-						debug( 'Operation: %s failed with %s', JSON.stringify( call ), err );
+						log.error( 'Deferred operation "%s" failed with %s', call.operation, err );
 						call.reject( err );
 					}
 				}
@@ -168,7 +167,6 @@ function Bucket( bucket, options, riak, createBucket ) {
 	} );
 
 	var operations = [ 'del', 'get', 'getKeys', 'getByKeys', 'getKeysByIndex', 'getByIndex', 'mutate', 'put' ];
-	var machine = new Monad();
 	_.each( operations, function( name ) {
 		machine[ name ] = function() {
 			var list = Array.prototype.slice.call( arguments, 0 );
