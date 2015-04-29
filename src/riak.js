@@ -5,12 +5,29 @@ var log = require( './log' )( 'riaktive.api' );
 var Errors = require( './errors' );
 
 function buildIndexQuery( bucketName, index, start, finish, limit, continuation ) {
+	var progressIndex = getProgressIndex( arguments );
 	if ( _.isObject( index ) ) {
-		start = start || index.start;
-		finish = finish || index.finish;
-		limit = limit || index.limit || index.max_results;
-		continuation = continuation || index.continuation;
-		index = index.index;
+		start = index.start;
+		finish = index.finish;
+		limit = index.limit || index.max_results;
+		continuation = index.continuation;
+		index = index.index || index.name;
+	} else {
+		if ( progressIndex > 3 || progressIndex < 0 ) {
+			finish = finish || index.finish;
+			if ( progressIndex > 4 || progressIndex < 0 ) {
+				limit = limit || index.limit || index.max_results;
+				if ( progressIndex > 5 || progressIndex < 0 ) {
+					continuation = continuation || index.continuation;
+				} else {
+					continuation = undefined;
+				}
+			} else {
+				limit = continuation = undefined;
+			}
+		} else {
+			finish = limit = continuation = undefined;
+		}
 	}
 	if ( index === '$key' || index === '$bucket' ) {
 		void 0; // esformatter trashes the entire file w/o this b/c empty blocks
@@ -142,65 +159,53 @@ function get( riak, bucketName, key, includeDeleted ) {
 				}
 			} else {
 				log.error( 'Get "%s" from "%s" return an empty document!', key, bucketName );
-				throw new Errors.EmptyResult( bucket, key );
+				throw new Errors.EmptyResult( bucketName, key );
 			}
 		} );
 }
 
 function getByBucketKeys( riak, bucketName, keys, includeDeleted ) {
-	return when.promise( function( resolve, reject, notify ) {
-		var all = _.map( keys, function( key ) {
-			return function() {
-				return get( riak, bucketName, key, includeDeleted )
-					.then( function( doc ) {
-						notify( doc );
-						return doc;
-					} );
-			};
-		} );
-		parallel( all ).then( resolve, reject );
+	var notify = getProgressCallback( arguments );
+	var all = _.map( keys, function( key ) {
+		return function() {
+			return get( riak, bucketName, key, includeDeleted )
+				.tap( notify );
+		};
 	} );
+	return parallel( all );
 }
 
 function getByKeys( riak, keys ) {
-	return when.promise( function( resolve, reject, notify ) {
-		var all = _.map( keys, function( id ) {
-			return function() {
-				return get( riak, id.bucket, id.key, includeDeleted )
-					.then( function( doc ) {
-						notify( doc );
-						return doc;
-					} );
-			};
-		} );
-		parallel( all ).then( resolve, reject );
+	var notify = getProgressCallback( arguments );
+	var all = _.map( keys, function( id ) {
+		return function() {
+			return get( riak, id.bucket, id.key, includeDeleted )
+				.tap( notify );
+		};
 	} );
+	return parallel( all );
 }
 
 function getByIndex( riak, bucketName, index, start, finish, limit, continuation ) {
-	return when.promise( function( resolve, reject, notify ) {
-		var promises = [];
-		getKeysByIndex( riak, bucketName, index, start, finish, limit, continuation )
-			.progress( function( keys ) {
-				_.each( keys, function( key ) {
-					promises.push(
-						get( riak, bucketName, key )
-							.then( function( doc ) {
-								notify( doc );
-								return doc;
-							} )
-					);
+	var notify = getProgressCallback( arguments );
+	var promises = [];
+	function onDoc( keys ) {
+		_.each( keys, function( key ) {
+			promises.push(
+				get( riak, bucketName, key )
+					.tap( notify )
+			);
+		} );
+	}
+	return getKeysByIndex( riak, bucketName, index, start, finish, limit, continuation, onDoc )
+		.then( function( results ) {
+			log.debug( 'Resolving %d keys', promises.length );
+			return when.all( promises )
+				.then( function( docs ) {
+					results.docs = _.sortBy( docs, 'id' );
+					return results;
 				} );
-			} )
-			.then( function( results ) {
-				log.debug( 'Resolving %d keys', promises.length );
-				when.all( promises )
-					.then( function( docs ) {
-						results.docs = _.sortBy( docs, 'id' );
-						resolve( results );
-					} );
-			} );
-	} );
+		} );
 }
 
 function getKeys( riak, bucketName ) {
@@ -210,26 +215,39 @@ function getKeys( riak, bucketName ) {
 function getKeysByIndex( riak, bucketName, index, start, finish, limit, continuation ) {
 	var query = buildIndexQuery( bucketName, index, start, finish, limit, continuation );
 	var newContinuation;
+	var notify = getProgressCallback( arguments );
 	log.debug( 'Requesting keys for "%s"', JSON.stringify( query ) );
 	var keys = [];
-	return riak.getIndex( query )
+	function onKey( data ) {
+		if ( data ) {
+			if ( data.continuation ) {
+				newContinuation = data.continuation;
+			} else {
+				keys = keys.concat( data.keys );
+				_.each( data.keys, function( key ) {
+					notify( key );
+				} );
+			}
+		}
+		return data ? data.keys : [];
+	}
+	return riak.getIndex( query, onKey )
 		.then( function() {
 			if ( newContinuation ) {
 				query.continuation = newContinuation;
 			}
 			query.keys = keys;
 			return query;
-		} )
-		.progress( function( data ) {
-			if ( data ) {
-				if ( data.continuation ) {
-					newContinuation = data.continuation;
-				} else {
-					keys = keys.concat( data.keys );
-				}
-			}
-			return data ? data.keys : [];
 		} );
+}
+
+function getProgressCallback( args ) {
+	return _.find( Array.prototype.slice.call( args ), _.isFunction ) || _.noop;
+}
+
+function getProgressIndex( args ) {
+	var list = Array.prototype.slice.call( args );
+	return _.findIndex( list, _.isFunction ) || list.length;
 }
 
 function includeDeleted( flag ) {

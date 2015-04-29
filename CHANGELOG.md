@@ -5,6 +5,7 @@
  * Replace sliver with pluggable idStrategy approach
  * Update mutate to always return document (changed or not)
  * Make _indexes available during mutate
+ * Remove deprecated `progress` support from promises
  * Add default timeout to ensure promises reject on connection failure
  * Use whistlepunk for logging
  * Add ability to specific # of connections per node to start with in the pool

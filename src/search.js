@@ -135,9 +135,18 @@ function queryRequest( params, callback ) { // jshint ignore:line
 	} );
 }
 
-function search( riak, solr, index, body, params, includeStats ) {
-	return when.promise( function( resolve, reject, notify ) {
+function search( riak, solr, index, body, params, includeStats, progress ) {
+	return when.promise( function( resolve, reject ) {
+		if ( _.isFunction( includeStats ) ) {
+			progress = includeStats;
+			includeStats = false;
+		} else if ( _.isFunction( params ) ) {
+			progress = params;
+			params = undefined;
+			includeStats = false;
+		}
 		var query = createQuery( solr, body, params );
+		var notify = progress || _.noop;
 		solr.search( query, function( err, result ) {
 			if ( err ) {
 				log.error( 'Searching index "%s" with query %j failed with %s',
@@ -146,24 +155,20 @@ function search( riak, solr, index, body, params, includeStats ) {
 					err.stack );
 				reject( err );
 			} else {
+				function onDocs( docs ) {
+					var response = includeStats
+						? { keys: matches,
+							docs: docs,
+							total: result.response.numFound,
+							start: result.response.start,
+							maxScore: result.response.maxScore,
+							qTime: result.responseHeader.QTime
+						} : docs;
+					resolve( response );
+				}
 				var matches = parseResponse( result.response );
-				riak.getByKeys( matches )
-					.then( null, reject )
-					.progress( function( doc ) {
-						notify( doc );
-					} )
-					.done( function( docs ) {
-						var response = includeStats
-							? { keys: matches,
-								docs: docs,
-								total: result.response.numFound,
-								start: result.response.start,
-								maxScore: result.response.maxScore,
-								qTime: result.responseHeader.QTime
-							}
-							: docs;
-						resolve( response );
-					} );
+				riak.getByKeys( matches, notify )
+					.then( onDocs, reject );
 			}
 		} );
 	} );

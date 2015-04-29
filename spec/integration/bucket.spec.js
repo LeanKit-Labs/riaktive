@@ -53,20 +53,17 @@ describe( 'Bucket Operations', function() {
 			}, function() {
 				return bucket.put( { id: 'test-key-2', message: 'hulloo to you too' }, { lookup: 11 } );
 			}, function() {
-				return bucket.getKeysByIndex( 'lookup', 1, 20 )
-					.progress( function( data ) {
-						keys = data.concat( keys );
-					} );
+				return bucket.getKeysByIndex( 'lookup', 1, 20, function( data ) {
+					keys = keys.concat( data );
+				} );
 			}, function() {
-				return bucket.getByKeys( keys )
-					.progress( function( record ) {
-						list1.push( record );
-					} );
+				return bucket.getByKeys( keys, function( record ) {
+					list1.push( record );
+				} );
 			}, function() {
-				return bucket.getByIndex( 'lookup', 1, 20 )
-					.progress( function( record ) {
-						list2.push( record );
-					} );
+				return bucket.getByIndex( 'lookup', 1, 20, function( record ) {
+					list2.push( record );
+				} );
 			}, function() {
 				return bucket.put( 'test-key-3', { answer: 'nope' } );
 			}, function() {
@@ -173,8 +170,7 @@ describe( 'Bucket Operations', function() {
 			)
 			.then( function() {
 				riak.close();
-			}, function( err ) {
-					console.log( 'fek', err );
+			}, function() {
 					riak.close();
 				} );
 

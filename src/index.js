@@ -129,18 +129,20 @@ function lift( client ) { // jshint ignore:line
 		connect: nodeWhen.lift( client.connect ).bind( client ),
 		disconnect: nodeWhen.lift( client.disconnect ).bind( client ),
 		getBucket: safeLift( client.getBucket.bind( client ) ),
-		getKeys: function( params ) {
-			return when.promise( function( resolve, reject, progress ) {
+		getKeys: function( params, progress ) {
+			var notify = progress || _.noop;
+			return when.promise( function( resolve, reject ) {
 				var stream = client.getKeys( params );
-				stream.on( 'data', progress );
+				stream.on( 'data', notify );
 				stream.on( 'error', reject );
 				stream.on( 'end', resolve );
 			} );
 		},
-		getIndex: function( params ) {
-			return when.promise( function( resolve, reject, progress ) {
+		getIndex: function( params, progress ) {
+			var notify = progress || _.noop;
+			return when.promise( function( resolve, reject ) {
 				var stream = client.getIndex( params );
-				stream.on( 'data', progress );
+				stream.on( 'data', notify );
 				stream.on( 'error', reject );
 				stream.on( 'end', resolve );
 			} );

@@ -59,32 +59,32 @@ bucket.get( key )
 
 var list1 = [];
 var list2 = [];
+
+
+// optional progress callbacks get called as
+// each record comes back from Riak
+function onDoc1( doc ) {
+	list1.push( doc );
+}
+
 // retrieve all documents with the name 'kitteh'
-// calls that result in multiple documents are
-// provided as they are read from Riak via the
-// progress call and as part of the final resolution
-bucket.getByIndex( 'name', 'kitteh' )
-	.progress( function( match ) {
-		list1.push( match );
-	} )
+bucket.getByIndex( 'name', 'kitteh', onDoc )
 	.then( function( results ) {
 		// results contains metadata as well as
-		// keys and docs properties
+		// `keys` and `docs` properties
 	} );
 
 // retrieve all documents of the type 'felis catus'
-bucket.getByIndex( 'type', 'felis catus' )
-	.progress( function( match ) {
-		list2.push( match );
+bucket.getByIndex( 'type', 'felis catus', function onDoc2( doc ) )
+		list2.push( doc );
 	} );
 
 var searchResults = [];
 // retrieve documents matching Solr search criteria
 var index = riak.index( 'mahbucket_index' );
-index.search( { name: 'kitteh' } )
-	.progress( function( match ) {
-		searchResults.push( match );
-	} );
+index.search( { name: 'kitteh' }, function onMatch( doc ) {
+	searchResults.push( match );
+} );
 ```
 
 ## Connectivity
@@ -248,7 +248,7 @@ riak.bucketName.del( 'someKey' )
 ```
 
 ## Secondary Indexes
-Secondary Indexes can be supplied to the put call and are available during mutation via the `_indexes` property. Riaktive provides two calls for retrieving keys or documents by index.
+Secondary Indexes can be supplied to the put call and are available during mutation via the `_indexes` property. Riaktive provides calls that will retrieve either keys or documents by an index.
 
 ### index
 Riaktive manages the _bin, _int suffixes on index names for you so that you don't have to provide those when creating new indexes or getting by them. In addition, you can also use the `$key` index as a way to get a range of keys. (frequently used for paging)
@@ -277,14 +277,30 @@ Both calls support passing all arguments as a hash:
 }
 ```
 
-### getKeysByIndex( index, start|exactMatch, [finish], [limit], [continuation] )
-This call will return the keys to the `.progress` callback of the resulting promise.
+### result set
+Both calls resolve to a hash with the following properties:
 
-### getByIndex( index, start|exactMatch, [finish], [limit], [continuation] )
-This call retrieves the documents (instead of only the keys) and passes each one as soon as it is retrieved to the `.progress` callback.
+```javascript
+// index, start, finish and limit will be whatever was passed to the call
+{
+	index:
+	start:
+	finish:
+	limit:
+	keys: // the resulting keys
+	docs: // matching docs - only gets set on the getByIndex call
+	continuation: // only applies if there are more keys after the current set
+}
+```
+
+### getKeysByIndex( index, start|exactMatch, [finish], [limit], [continuation], [progress] )
+Returns a promise that resolves to a metadata about the index query and a key list and will also invoke the optional progress callback if provided for each key found.
+
+### getByIndex( index, start|exactMatch, [finish], [limit], [continuation], [progress] )
+Returns a promise that resolves to the full documents (in addition to keys)
 
 ## Search (Solr)
-Riaktive supports the ability to define a schema and index per bucket and then query a Solr index and return documents to the promise's `progress` callback as they are retrieved. The promise's `.then` callback will also receive the search statistics from Solr as well as the keys and documents via `keys` and `docs` properties on successful calls.
+Riaktive supports the ability to define a schema and index per bucket and then query a Solr index and return documents to the optional `progress` callback as they are retrieved. The promise will resolve to the search results and can optionally include statistics from Solr.
 
 ### Search schema
 When defining a bucket, the search schema is defined with the following properties:
@@ -307,10 +323,17 @@ You can easily search an existing Solr index using the JSON representation of So
 
 As with buckets, the index must be defined first before accessing the index off the riaktive instance directly or via the returned variable:
 
+#### search( query, [options], [progress] )
+Sends a query to Solr with any optional arguments and invokes the progress callback (if provided) after each document is retrieved from Riak.
+
 ```javascript
 var myBucketIndex = riak.index( 'mybucket_index' );
-myBucketIndex.search( { name: 'Waldo } )
-	.progress( function( matchingDoc ) { /* do something with the match */ } )
+
+function onMatch( match ) {
+	// do something with each matching document
+}
+
+myBucketIndex.search( { name: 'Waldo }, onMatch )
 	.then( function( statistics ) { /* do something with stats or the list */ } );
 ```
 
