@@ -163,7 +163,7 @@ The id strategy is a simple function that takes no arguments and returns a strin
 ```javascript
 var riaktive = require( 'riaktive' );
 var sliver = require( 'sliver' )();
-riaktive.setIdStrategy( sliver.getId );
+riaktive.setIdStrategy( sliver.getId.bind( sliver )  );
 ```
 
 > 'sliver' generates 128 bit, base 62 encoded, k-ordered, lexicographically sortable ids.
