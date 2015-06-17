@@ -146,6 +146,21 @@ describe( 'Bucket Operations', function() {
 
 	it( 'should fetch documents by index', function() {
 		list2.length.should.equal( 2 );
+
+		var sorted = _.sortBy( list2, function( r ) {
+			return r.id;
+		} );
+
+		_.pick( sorted[ 0 ], [ 'id', 'message' ] ).should.eql( {
+			id: 'test-key-1',
+			message: 'hulloo'
+		} );
+
+		_.pick( sorted[ 1 ], [ 'id', 'message' ] ).should.eql( {
+			id: 'test-key-2',
+			message: 'hulloo to you too'
+		} );
+
 	} );
 
 	it( 'should create siblings on conflicting puts', function() {
