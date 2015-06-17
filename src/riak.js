@@ -242,7 +242,7 @@ function getKeysByIndex( riak, bucketName, index, start, finish, limit, continua
 }
 
 function getProgressCallback( args ) {
-	return _.find( Array.prototype.slice.call( args ), _.isFunction ) || _.noop;
+	return _.findLast( Array.prototype.slice.call( args ), _.isFunction ) || _.noop;
 }
 
 function getProgressIndex( args ) {
