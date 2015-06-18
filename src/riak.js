@@ -189,7 +189,10 @@ function getByKeys( riak, keys ) {
 function getByIndex( riak, bucketName, index, start, finish, limit, continuation ) {
 	var notify = getProgressCallback( arguments );
 	var promises = [];
-	function onDoc( keys ) {
+
+	function onDoc( _keys ) {
+		var keys = _.isArray( _keys ) ? _keys : [ _keys ];
+
 		_.each( keys, function( key ) {
 			promises.push(
 				get( riak, bucketName, key )
@@ -242,7 +245,7 @@ function getKeysByIndex( riak, bucketName, index, start, finish, limit, continua
 }
 
 function getProgressCallback( args ) {
-	return _.find( Array.prototype.slice.call( args ), _.isFunction ) || _.noop;
+	return _.findLast( Array.prototype.slice.call( args ), _.isFunction ) || _.noop;
 }
 
 function getProgressIndex( args ) {
