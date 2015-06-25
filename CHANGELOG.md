@@ -1,6 +1,9 @@
 ## 0.2.*
 
-### Current
+### 0.2.1
+Use our forks of riakpbc and riakproto so that we can stay up-to-date with the latest protobuf API for Riak.
+
+### 0.2.0
 
  * Replace sliver with pluggable idStrategy approach
  * Update mutate to always return document (changed or not)
