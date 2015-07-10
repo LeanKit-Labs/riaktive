@@ -6,3 +6,6 @@ coverage/
 .editorconfig
 .esformatter
 .jshintrc
+/.vagrant
+/.riak
+/.idea
