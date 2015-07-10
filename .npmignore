@@ -9,3 +9,4 @@ coverage/
 /.vagrant
 /.riak
 /.idea
+/Vagrantfile

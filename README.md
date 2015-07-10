@@ -131,6 +131,29 @@ var riak = riaktive.connect( {
 	failed: function() { // what to do when retries are exhausted across all nodes }
 } );
 ```
+### Buckets
+Most standard operations against Riak will happen through riaktive's buckets. You have to first define a bucket in order to invoke operations against it. The upside is that riaktive will ensure the bucket properties you want have been set before any of the calls you make against that bucket resolve.
+
+#### bucket( bucketName, options )
+
+| Option | Description | Default |
+|-------:|-------------|---------|
+| alias | how you will access the bucket on the `riaktive` instance | `undefined` |
+| allow_mult | whether or not siblings are allowed in this bucket | `true` |
+| bucket_type | the bucket type to associate with this bucket | `'default'`
+| schema | the name of the schema to create for this bucket | `undefined` |
+| schemaPath | the path to the schema file to use | `undefined` |
+| search_index | the name of the search index associated with this bucket | `bucketName + '_index'` |
+
+```javascript
+var myBucket = riak.bucket( 'my-bucket', { alias: 'lol' } );
+
+// you can now make calls against the bucket via the myBucket variable
+myBucket.get( 'someId' ).then( function( doc ) { ... } );
+
+// or you can access the bucket on the riaktive instance via its alias
+riak.lol.get( 'someId' ).then( function( doc ) { ... } );
+```
 
 ### Command deferral
 All commands are delayed until:

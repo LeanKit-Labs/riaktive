@@ -1,5 +1,8 @@
 ## 0.2.*
 
+### 0.2.2
+Add support for bucket types.
+
 ### 0.2.1
 Use our forks of riakpbc and riakproto so that we can stay up-to-date with the latest protobuf API for Riak.
 
