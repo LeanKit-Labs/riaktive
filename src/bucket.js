@@ -29,9 +29,13 @@ function Bucket( bucket, options, riak, createBucket ) {
 	if ( options.schema ) {
 		defaults[ 'search_index' ] = bucketName + '_index'; // jshint ignore:line
 	}
-	var api = createBucket( riak, bucketName );
+
+	var bucketType = options.bucket_type || 'default';
+
+	var api = createBucket( riak, bucketName, bucketType );
+
 	var alias = options.alias;
-	options = _.omit( options, 'alias' );
+	options = _.omit( options, 'alias', 'bucket_type' );
 	options = _.defaults( options, defaults );
 	var machine = new machina.Fsm( {
 		alias: alias || bucketName,
@@ -70,12 +74,13 @@ function Bucket( bucket, options, riak, createBucket ) {
 		_create: function() {
 			var self = this;
 			log.debug( 'Getting bucket props for "%s"', bucketName );
-			api.readBucket( riak, bucketName )
+
+			api.readBucket()
 				.then( function( props ) {
 					log.debug( 'Read props %j from bucket "%s"', props, bucketName );
 					var difference = diff( props, _.omit( options, 'schema', 'schemaPath' ) );
 					if ( _.keys( difference ).length > 0 ) {
-						riak.setBucket( { bucket: bucketName, props: difference } )
+						riak.setBucket( { bucket: bucketName, props: difference, type: bucketType } )
 							.then( function() {
 								self.handle( 'bucket.asserted' );
 							} )
