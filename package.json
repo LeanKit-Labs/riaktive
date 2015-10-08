@@ -27,7 +27,7 @@
     "whistlepunk": "~0.3.1"
   },
   "devDependencies": {
-    "biggulp": "0.*.*",
+    "biggulp": "0.2.x",
     "chai": "^2.1.0",
     "chai-as-promised": "^4.2.0",
     "configya": "~0.2.0",
