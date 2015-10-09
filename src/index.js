@@ -1,18 +1,18 @@
-require( './log' )();
-var _ = require( 'lodash' );
-var when = require( 'when' );
-var nodeWhen = require( 'when/node' );
-var riakpbc = require( '@lklabs/riakpbc' );
-var RiakConnection = require( '@lklabs/riakpbc/lib/connection' );
-var createBucket = require( './bucket.js' );
-var api = require( './riak.js' );
-var solr = require( './search.js' );
-var uuid = require( 'node-uuid' );
-var pool = require( './pool.js' );
+require( "./log" )();
+var _ = require( "lodash" );
+var when = require( "when" );
+var nodeWhen = require( "when/node" );
+var riakpbc = require( "@lklabs/riakpbc" );
+var RiakConnection = require( "@lklabs/riakpbc/lib/connection" );
+var createBucket = require( "./bucket.js" );
+var api = require( "./riak.js" );
+var solr = require( "./search.js" );
+var uuid = require( "node-uuid" );
+var pool = require( "./pool.js" );
 var idStrategy = uuid.v4;
 
 function configureLogging( logConfig ) {
-	require( './log' )( logConfig );
+	require( "./log" )( logConfig );
 }
 
 function connect( options ) {
@@ -32,7 +32,7 @@ function connect( options ) {
 	}
 
 	var defaultNode = {
-		host: 'localhost',
+		host: "localhost",
 		port: 8087,
 		http: 8098,
 		connectTimeout: 2000,
@@ -133,25 +133,25 @@ function lift( client ) { // jshint ignore:line
 			var notify = progress || _.noop;
 			return when.promise( function( resolve, reject ) {
 				var stream = client.getKeys( params );
-				stream.on( 'data', notify );
-				stream.on( 'error', reject );
-				stream.on( 'end', resolve );
+				stream.on( "data", notify );
+				stream.on( "error", reject );
+				stream.on( "end", resolve );
 			} );
 		},
 		getIndex: function( params, progress ) {
 			var notify = progress || _.noop;
 			return when.promise( function( resolve, reject ) {
 				var stream = client.getIndex( params );
-				stream.on( 'data', notify );
-				stream.on( 'error', reject );
-				stream.on( 'end', resolve );
+				stream.on( "data", notify );
+				stream.on( "error", reject );
+				stream.on( "end", resolve );
 			} );
 		}
 	};
 	return lifted;
 }
 
-// for cases when a simple when lift won't do
+// for cases when a simple when lift won"t do
 function safeLift( fn ) { // jshint ignore:line
 	return function( params ) {
 		return when.promise( function( resolve ) {

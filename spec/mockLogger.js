@@ -1,3 +1,4 @@
+var _ = require( "lodash" );
 var namespaces = {};
 var adapter = {
 	namespaces: namespaces,
