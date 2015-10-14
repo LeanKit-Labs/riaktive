@@ -2,6 +2,7 @@ require( "./log" )();
 var _ = require( "lodash" );
 var when = require( "when" );
 var nodeWhen = require( "when/node" );
+var Riak = require( "basho-riak-client" );
 var riakpbc = require( "@lklabs/riakpbc" );
 var RiakConnection = require( "@lklabs/riakpbc/lib/connection" );
 var createBucket = require( "./bucket.js" );
@@ -63,11 +64,22 @@ function connect( options ) {
 		} );
 	} );
 
-	return lift( client );
+	var hosts = _.map( normalized.nodes, function( n ) {
+		return n.host + ":" + n.port;
+	} );
+
+	var client2 = new Riak.Client( hosts );
+
+	return lift( client, client2 );
 }
 
 // this is here to convert Node style callbacks to promises
-function lift( client ) { // jshint ignore:line
+function lift( client, client2 ) { // jshint ignore:line
+	var liftedGetBucket = safeLift( client2.fetchBucketProps.bind( client2 ) );
+	var liftedSetBucket = safeLift( client2.storeBucketProps.bind( client2 ) );
+	var liftedFetchBucketTypeProps = nodeWhen.lift( client2.fetchBucketTypeProps.bind( client2 ) );
+	var liftedStoreBucketTypeProps = nodeWhen.lift( client2.storeBucketTypeProps.bind( client2 ) );
+
 	var lifted = {
 		bucket: function( bucketName, options ) {
 			var bucket = this[ bucketName ];
@@ -101,9 +113,55 @@ function lift( client ) { // jshint ignore:line
 		reset: function() {
 			client.pool.restart();
 		},
-		getBuckets: nodeWhen.lift( client.getBuckets ).bind( client ),
-		setBucket: nodeWhen.lift( client.setBucket ).bind( client ),
-		resetBucket: nodeWhen.lift( client.resetBucket ).bind( client ),
+		getBuckets: function( _options, _notify ) {
+			var notify;
+			var options;
+			if ( _.isFunction( _options ) ) {
+				notify = _options;
+				options = {};
+			} else {
+				options = _options;
+				notify = _notify;
+			}
+
+			var opts = _.pick( options, [ "bucketType", "timeout" ] );
+			if ( options.type && !opts.bucketType ) {
+				opts.bucketType = options.type;
+			}
+
+			// Forcing to stream for now to strongly encourage safety
+			// Safety first, kids
+			opts.stream = true;
+
+			return when.promise( function( resolve, reject ) {
+				// This lib does not actually return a JS stream
+				// but essentially fires a notify callback when data is retrieved
+				var stream = client2.listBuckets( opts, function( err, result ) {
+					if ( err ) {
+						return reject( err );
+					}
+					notify( result.buckets );
+					if ( result.done ) {
+						return resolve();
+					}
+				} );
+			} );
+		},
+		setBucket: function( options ) {
+			var opts = {
+				bucket: options.bucket,
+				bucketType: options.type
+			};
+
+			_.extend( opts, options.props );
+
+			if ( opts.search_index ) {
+				opts.searchIndex = opts.search_index;
+				delete opts.search_index;
+			}
+
+			return liftedSetBucket( opts );
+		},
 		put: nodeWhen.lift( client.put ).bind( client ),
 		get: nodeWhen.lift( client.get ).bind( client ),
 		del: nodeWhen.lift( client.del ).bind( client ),
@@ -117,8 +175,29 @@ function lift( client ) { // jshint ignore:line
 		ping: nodeWhen.lift( client.ping ).bind( client ),
 		startTls: nodeWhen.lift( client.startTls ).bind( client ),
 		auth: nodeWhen.lift( client.auth ).bind( client ),
-		setBucketType: nodeWhen.lift( client.setBucketType ).bind( client ),
-		getBucketType: nodeWhen.lift( client.getBucketType ).bind( client ),
+		setBucketType: function( _opts ) {
+			var options = _opts || {};
+
+			if ( options.type ) {
+				options.bucketType = _opts.type;
+				delete options.type;
+			}
+
+			return liftedStoreBucketTypeProps( options );
+		},
+		getBucketType: function( _opts ) {
+			var options;
+			if ( _.isString( _opts ) ) {
+				options = {
+					bucketType: _opts
+				};
+			} else {
+				options = _.pick( _opts, "bucketType" );
+				options.bucketType = options.bucketType || _opts.type;
+			}
+
+			return liftedFetchBucketTypeProps( options );
+		},
 		updateDtype: nodeWhen.lift( client.updateDtype ).bind( client ),
 		fetchDtype: nodeWhen.lift( client.fetchDtype ).bind( client ),
 		yzGetIndex: nodeWhen.lift( client.getSearchIndex ).bind( client ),
@@ -128,7 +207,13 @@ function lift( client ) { // jshint ignore:line
 		yzGetSchema: safeLift( client.getSearchSchema.bind( client ) ),
 		connect: nodeWhen.lift( client.connect ).bind( client ),
 		disconnect: nodeWhen.lift( client.disconnect ).bind( client ),
-		getBucket: safeLift( client.getBucket.bind( client ) ),
+		getBucket: function( options ) {
+			var opts = _.pick( options, "bucket", "bucketType" );
+			if ( options.type ) {
+				opts.bucketType = options.type;
+			}
+			return liftedGetBucket( opts );
+		},
 		getKeys: function( params, progress ) {
 			var notify = progress || _.noop;
 			return when.promise( function( resolve, reject ) {

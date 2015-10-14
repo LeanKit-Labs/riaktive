@@ -88,12 +88,10 @@ describe( "Bucket Operations", function() {
 					return bucket.get( "test-key-3" );
 				}, function() {
 					return bucket.put( { special: "generated key" } );
-				}, function() {
-					return riak.resetBucket( { bucket: "mah_bucket" } );
 				}
 			] )
 				.then( function( results ) {
-					props = results[ 1 ].props;
+					props = results[ 1 ];
 					fetched = results[ 2 ];
 					mutated = results[ 3 ];
 					unchanged = results[ 4 ];
@@ -104,13 +102,14 @@ describe( "Bucket Operations", function() {
 				} )
 				.catch( function( err ) {
 					console.log( "failed with", err.message );
+					console.log( err.stack );
 					done();
 				} );
 		} );
 
 		it( "should create valid bucket properties", function() {
-			expect( props.search_index ).to.be.undefined;
-			props.allow_mult.should.be.true; //jshint ignore:line
+			expect( props.searchIndex ).to.be.undefined;
+			props.allowMult.should.be.true; //jshint ignore:line
 		} );
 
 		it( "should resolve operations after setup", function() {
@@ -261,12 +260,10 @@ describe( "Bucket Operations", function() {
 					return bucket.put( "test-key-3", { answer: "nope" } );
 				}, function() {
 					return bucket.put( { special: "generated key" } );
-				}, function() {
-					return riak.resetBucket( { bucket: "a_custom_bucket" } );
 				}
 			] )
 				.then( function( results ) {
-					props = results[ 1 ].props;
+					props = results[ 1 ];
 					fetched = results[ 2 ];
 					mutated = results[ 3 ];
 					unchanged = results[ 4 ];
@@ -280,8 +277,8 @@ describe( "Bucket Operations", function() {
 		} );
 
 		it( "should create valid bucket properties", function() {
-			props.allow_mult.should.be.true; //jshint ignore:line
-			props.n_val.should.equal( 10 );
+			props.allowMult.should.be.true; //jshint ignore:line
+			props.nVal.should.equal( 10 );
 		} );
 
 		it( "should resolve operations after setup", function() {
@@ -356,6 +353,88 @@ describe( "Bucket Operations", function() {
 				}, function() {
 					riak.close();
 				} );
+		} );
+	} );
+
+	describe( "getting a list of buckets", function() {
+		var riak;
+		var list;
+		var bucket1;
+		var bucket2;
+		before( function( done ) {
+			riak = connect( { host: config.riak.server } );
+
+			bucket1 = riak.bucket( "listBucket1" );
+			bucket2 = riak.bucket( "listBucket2" );
+
+			list = [];
+			bucket1.put( { id: "somekey", message: "somevalue" } )
+				.then( function() {
+					return bucket2.put( { id: "somekey2", message: "somevalue2" } );
+				} )
+				.then( function() {
+					return riak.getBuckets( function( buckets ) {
+						if ( buckets.length ) {
+							list = list.concat( buckets );
+						}
+					} );
+				} )
+				.then( function( res ) {
+					done();
+				} );
+		} );
+
+		after( function( done ) {
+			bucket1.del( "somekey" )
+				.then( function() {
+					bucket2.del( "somekey2" );
+				} )
+				.then( function() {
+					done();
+				} );
+		} );
+
+		it( "should return the list of created buckets", function() {
+			list.should.include.members( [ "listBucket1", "listBucket2" ] );
+		} );
+	} );
+
+	describe( "working with bucket types", function() {
+		var riak;
+		var list;
+		var firstPropResult;
+		var secondPropResult;
+
+		before( function( done ) {
+			riak = connect( { host: config.riak.server } );
+
+			riak.getBucketType( { type: "custom_bucket_type" } )
+				.then( function( result ) {
+					firstPropResult = result;
+					return riak.setBucketType( {
+						type: "custom_bucket_type",
+						lastWriteWins: true
+					} );
+				} )
+				.then( function( res ) {
+					return riak.getBucketType( { type: "custom_bucket_type" } );
+				} )
+				.then( function( result ) {
+					secondPropResult = result;
+					done();
+				} );
+		} );
+
+		after( function() {
+			return riak.setBucketType( {
+				type: "custom_bucket_type",
+				lastWriteWins: false
+			} );
+		} );
+
+		it( "should change the last write wins property", function() {
+			firstPropResult.lastWriteWins.should.equal( false );
+			secondPropResult.lastWriteWins.should.equal( true );
 		} );
 	} );
 } );

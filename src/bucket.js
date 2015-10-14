@@ -24,7 +24,7 @@ function Bucket( bucket, options, riak, createBucket ) {
 	var defaults = {
 		schema: undefined,
 		schemaPath: undefined,
-		allow_mult: true
+		allowMult: true
 	};
 	if ( options.schema ) {
 		defaults[ "search_index" ] = bucketName + "_index"; // jshint ignore:line
