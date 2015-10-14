@@ -15,13 +15,14 @@
     "riak"
   ],
   "dependencies": {
+    "basho-riak-client": "^1.8.1",
     "configya": "~0.2.1",
+    "@lklabs/riakpbc": ">=2.1.1",
     "lodash": "~3.7.0",
     "machina": "~1.0.0",
     "monologue.js": "~0.3.0",
     "node-uuid": "~1.4.3",
     "postal": "~1.0.2",
-    "@lklabs/riakpbc": ">=2.1.1",
     "solr-client": "~0.5.0",
     "when": "~3.7.2",
     "whistlepunk": "~0.3.1"
