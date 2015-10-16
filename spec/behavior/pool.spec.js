@@ -1,10 +1,9 @@
-require( '../setup' );
-var when = require( 'when' );
-var connectionManager = require( '../../src/connectionManager' );
-var createPool = require( '../../src/pool' );
+require( "../setup" );
+var when = require( "when" );
+var connectionManager = require( "../../src/connectionManager" );
+var createPool = require( "../../src/pool" );
 
-describe( 'Connectivity', function() {
-
+describe( "Connectivity", function() {
 	var connectionMock = function() {
 		return {
 			client: {
@@ -22,21 +21,21 @@ describe( 'Connectivity', function() {
 		};
 	};
 
-	describe( 'Connection Manager', function() {
-		describe( 'with no connectivity', function() {
+	describe( "Connection Manager", function() {
+		describe( "with no connectivity", function() {
 			var manager;
 
 			before( function( done ) {
 				manager = connectionManager( 1, {}, function() {
-					return when.reject( new Error( 'boo' ) );
+					return when.reject( new Error( "boo" ) );
 				}, 5, 10 );
-				manager.on( 'shutdown', function() {
+				manager.on( "shutdown", function() {
 					done();
 				} );
 				manager.connect();
 			} );
 
-			it( 'should have shutdown after limit', function() {
+			it( "should have shutdown after limit", function() {
 				manager.consecutiveFailures.should.equal( 6 );
 			} );
 
@@ -45,7 +44,7 @@ describe( 'Connectivity', function() {
 			} );
 		} );
 
-		describe( 'with connectivity', function() {
+		describe( "with connectivity", function() {
 			var manager;
 			var failures = 0;
 			var tries = 0;
@@ -54,28 +53,28 @@ describe( 'Connectivity', function() {
 					if ( ++tries > 2 ) {
 						return when.resolve( connectionMock() );
 					} else {
-						return when.reject( new Error( 'boo' ) );
+						return when.reject( new Error( "boo" ) );
 					}
 				};
 				manager = connectionManager( 1, {}, factory, 5, 10 );
-				manager.on( 'connected', function() {
+				manager.on( "connected", function() {
 					done();
 				} );
-				manager.on( 'disconnected', function() {
+				manager.on( "disconnected", function() {
 					failures++;
 				} );
 				manager.connect();
 			} );
 
-			it( 'should resolve to a connected state', function() {
-				manager.state.should.equal( 'connected' );
+			it( "should resolve to a connected state", function() {
+				manager.state.should.equal( "connected" );
 			} );
 
-			it( 'should retry until a connection succeeds', function() {
+			it( "should retry until a connection succeeds", function() {
 				failures.should.equal( 2 );
 			} );
 
-			it( 'should have reset consecutiveFailures', function() {
+			it( "should have reset consecutiveFailures", function() {
 				manager.consecutiveFailures.should.equal( 0 );
 			} );
 
@@ -84,7 +83,7 @@ describe( 'Connectivity', function() {
 			} );
 		} );
 
-		describe( 'with lost connection', function() {
+		describe( "with lost connection", function() {
 			var manager;
 			var failures = 0;
 			var connections = 0;
@@ -94,32 +93,32 @@ describe( 'Connectivity', function() {
 					return when.resolve( connection );
 				};
 				manager = connectionManager( 1, {}, factory, 5, 10 );
-				manager.on( 'connected', function() {
+				manager.on( "connected", function() {
 					if ( ++connections >= 2 ) {
 						done();
 					} else {
-						connection.raise( 'end' );
+						connection.raise( "end" );
 					}
 				} );
-				manager.on( 'disconnected', function() {
+				manager.on( "disconnected", function() {
 					failures++;
 				} );
 				manager.connect();
 			} );
 
-			it( 'should have reconnected', function() {
+			it( "should have reconnected", function() {
 				connections.should.equal( 2 );
 			} );
 
-			it( 'should resolve to a connected state', function() {
-				manager.state.should.equal( 'connected' );
+			it( "should resolve to a connected state", function() {
+				manager.state.should.equal( "connected" );
 			} );
 
-			it( 'should have disconnected', function() {
+			it( "should have disconnected", function() {
 				failures.should.equal( 1 );
 			} );
 
-			it( 'should have reset consecutiveFailures', function() {
+			it( "should have reset consecutiveFailures", function() {
 				manager.consecutiveFailures.should.equal( 0 );
 			} );
 
@@ -129,14 +128,13 @@ describe( 'Connectivity', function() {
 		} );
 	} );
 
-	describe( 'Connection Pool', function() {
-
-		describe( 'with no connectivity', function() {
+	describe( "Connection Pool", function() {
+		describe( "with no connectivity", function() {
 			var pool;
 			var error;
 			before( function( done ) {
-				pool = createPool( { nodes: [ { host: 'herp' }, { host: 'dederp' } ], wait: 20, limit: 2 }, function() {
-					return when.reject( new Error( 'fail' ) );
+				pool = createPool( { nodes: [ { host: "herp" }, { host: "dederp" } ], wait: 20, limit: 2 }, function() {
+					return when.reject( new Error( "fail" ) );
 				} );
 				pool.acquire( function( err ) {
 					error = err;
@@ -145,12 +143,12 @@ describe( 'Connectivity', function() {
 				} );
 			} );
 
-			it( 'should reject acquisition with error', function() {
-				error.toString().should.equal( 'Error: All nodes were unreachable.' );
+			it( "should reject acquisition with error", function() {
+				error.toString().should.equal( "Error: All nodes were unreachable." );
 			} );
 		} );
 
-		describe( 'with one available connection', function() {
+		describe( "with one available connection", function() {
 			var pool;
 			var connection;
 			var lease1;
@@ -173,12 +171,12 @@ describe( 'Connectivity', function() {
 				} );
 			} );
 
-			it( 'should fulfill both acquisition requests', function() {
+			it( "should fulfill both acquisition requests", function() {
 				lease1.connection.should.equal( connection );
 				lease2.connection.should.equal( connection );
 			} );
 
-			it( 'should resolve acquisition requests in order', function() {
+			it( "should resolve acquisition requests in order", function() {
 				order.should.eql( [ 1, 2 ] );
 			} );
 

@@ -1,8 +1,8 @@
-var _ = require( 'lodash' );
-var when = require( 'when' );
-var parallel = require( 'when/parallel' );
-var log = require( './log' )( 'riaktive.api' );
-var Errors = require( './errors' );
+var _ = require( "lodash" );
+var when = require( "when" );
+var parallel = require( "when/parallel" );
+var log = require( "./log" )( "riaktive.api" );
+var Errors = require( "./errors" );
 
 function buildIndexQuery( bucketName, bucketType, index, start, finish, limit, continuation ) {
 	var progressIndex = getProgressIndex( arguments );
@@ -29,13 +29,13 @@ function buildIndexQuery( bucketName, bucketType, index, start, finish, limit, c
 			finish = limit = continuation = undefined;
 		}
 	}
-	if ( index === '$key' || index === '$bucket' ) {
+	if ( index === "$key" || index === "$bucket" ) {
 		void 0; // esformatter trashes the entire file w/o this b/c empty blocks
 	} else if ( !/[_](bin|int)$/.test( index ) ) {
 		if ( _.isNumber( start ) ) {
-			index = index + '_int';
+			index = index + "_int";
 		} else {
-			index = index + '_bin';
+			index = index + "_bin";
 		}
 	}
 
@@ -70,18 +70,18 @@ function buildPut( bucketName, bucketType, key, obj, indexes, original ) {
 	var request = {
 		bucket: bucketName,
 		key: key,
-		'return_body': true,
+		return_body: true,
 		content: content( obj, indices ),
 		vclock: original.vclock || obj.vclock,
 		type: bucketType
 	};
 	if ( request.content.value.length > 64 ) {
-		log.debug( 'Putting %d bytes to %s in "%s"',
+		log.debug( "Putting %d bytes to %s in \"%s\"",
 			request.content.value.length,
 			key,
 			bucketName );
 	} else {
-		log.debug( 'Putting %s to "%s" in "%s"',
+		log.debug( "Putting %s to \"%s\" in \"%s\"",
 			request.content.value,
 			key,
 			bucketName );
@@ -91,7 +91,7 @@ function buildPut( bucketName, bucketType, key, obj, indexes, original ) {
 }
 
 function content( obj, indexes ) {
-	var tmp = { 'content_type': 'application/json', value: JSON.stringify( _.omit( obj, '_indexes' ) ) };
+	var tmp = { content_type: "application/json", value: JSON.stringify( _.omit( obj, "_indexes" ) ) };
 	if ( indexes ) {
 		tmp.indexes = indexes;
 	}
@@ -120,7 +120,7 @@ function createIndex( riak ) {
 
 function del( riak, bucketName, bucketType, key ) {
 	if ( _.isArray( key ) ) {
-		throw new Error( 'Multi-delete isn\'t supported' );
+		throw new Error( "Multi-delete isn\"t supported" );
 	} else if ( _.isObject( key ) && key.id ) {
 		key = key.id;
 	}
@@ -145,7 +145,7 @@ function get( riak, bucketName, bucketType, key, includeDeleted ) {
 		} )
 		.then( function( reply ) {
 			if ( reply.content ) {
-				log.debug( 'Get "%s" from "%s" returned %d documents with %d bytes',
+				log.debug( "Get \"%s\" from \"%s\" returned %d documents with %d bytes",
 					key,
 					bucketName,
 					reply.content.length,
@@ -162,7 +162,7 @@ function get( riak, bucketName, bucketType, key, includeDeleted ) {
 					return docs;
 				}
 			} else {
-				log.error( 'Get "%s" from "%s" return an empty document!', key, bucketName );
+				log.error( "Get \"%s\" from \"%s\" return an empty document!", key, bucketName );
 				throw new Errors.EmptyResult( bucketName, key );
 			}
 		} );
@@ -206,10 +206,10 @@ function getByIndex( riak, bucketName, bucketType, index, start, finish, limit, 
 	}
 	return getKeysByIndex( riak, bucketName, bucketType, index, start, finish, limit, continuation, onDoc )
 		.then( function( results ) {
-			log.debug( 'Resolving %d keys', promises.length );
+			log.debug( "Resolving %d keys", promises.length );
 			return when.all( promises )
 				.then( function( docs ) {
-					results.docs = _.sortBy( docs, 'id' );
+					results.docs = _.sortBy( docs, "id" );
 					return results;
 				} );
 		} );
@@ -223,7 +223,7 @@ function getKeysByIndex( riak, bucketName, bucketType, index, start, finish, lim
 	var query = buildIndexQuery( bucketName, bucketType, index, start, finish, limit, continuation );
 	var newContinuation;
 	var notify = getProgressCallback( arguments );
-	log.debug( 'Requesting keys for "%s"', JSON.stringify( query ) );
+	log.debug( "Requesting keys for \"%s\"", JSON.stringify( query ) );
 	var keys = [];
 	function onKey( data ) {
 		if ( data ) {
@@ -245,7 +245,7 @@ function getKeysByIndex( riak, bucketName, bucketType, index, start, finish, lim
 			}
 			query.keys = keys;
 			return query;
-		});
+		} );
 }
 
 function getProgressCallback( args ) {
@@ -272,14 +272,14 @@ function mutate( riak, bucketName, bucketType, key, mutateFn ) {
 			throw new Errors.SiblingMutation( bucketName, key );
 		} else {
 			var mutatis = mutateFn( _.cloneDeep( original ) );
-			var changes = _.omit( mutatis, 'vtag', 'vlock' );
-			var origin = _.omit( original, 'vtag', 'vlock' );
+			var changes = _.omit( mutatis, "vtag", "vlock" );
+			var origin = _.omit( original, "vtag", "vlock" );
 			if ( _.isEqual( changes, origin ) ) {
-				log.debug( 'No changes to document "%s" in "%s"', key, bucketName );
+				log.debug( "No changes to document \"%s\" in \"%s\"", key, bucketName );
 				return original;
 			} else {
 				mutatis.vclock = original.vclock;
-				log.debug( 'Mutated document "%s" in "%s"', key, bucketName );
+				log.debug( "Mutated document \"%s\" in \"%s\"", key, bucketName );
 				return put( riak, undefined, bucketName, bucketType, key, mutatis )
 					.then( function() {
 						return mutatis;
@@ -299,9 +299,8 @@ function parseIndexes( doc, obj ) {
 	var collection = {};
 	if ( obj.indexes && !doc._indexes ) {
 		_.each( obj.indexes, function( index ) {
-			var key = index.key.replace( '_int', '' ).replace( '_bin', '' );
+			var key = index.key.replace( "_int", "" ).replace( "_bin", "" );
 			if ( /_int$/.test( index.key ) ) {
-
 				if ( collection[ key ] ) {
 					collection[ key ] = _.flatten( [ collection[ key ], parseInt( index.value ) ] );
 				} else {
@@ -330,11 +329,11 @@ function processIndexes( list ) {
 			} );
 		} else if ( _.isNumber( sample ) ) {
 			return _.map( vals, function( x ) {
-				return { key: key + '_int', value: x };
+				return { key: key + "_int", value: x };
 			} );
 		} else {
 			return _.map( vals, function( x ) {
-				return { key: key + '_bin', value: x };
+				return { key: key + "_bin", value: x };
 			} );
 		}
 	} ) );
@@ -388,11 +387,11 @@ function readBucket( riak, bucketName, bucketType ) {
 
 	return riak.getBucket( params )
 		.then( null, function( err ) {
-			log.error( 'Failed to read bucket properties for "%s" with %s', bucketName, err.stack );
+			log.error( "Failed to read bucket properties for \"%s\" with %s", bucketName, err.stack );
 			return {};
 		} )
 		.then( function( bucket ) {
-			log.debug( 'Read bucket properties for "%s": %j', bucketName, bucket.props || {} );
+			log.debug( "Read bucket properties for \"%s\": %j", bucketName, bucket.props || {} );
 			return bucket.props || {};
 		} );
 }
