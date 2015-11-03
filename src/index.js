@@ -79,6 +79,9 @@ function lift( client, client2 ) { // jshint ignore:line
 	var liftedSetBucket = safeLift( client2.storeBucketProps.bind( client2 ) );
 	var liftedFetchBucketTypeProps = nodeWhen.lift( client2.fetchBucketTypeProps.bind( client2 ) );
 	var liftedStoreBucketTypeProps = nodeWhen.lift( client2.storeBucketTypeProps.bind( client2 ) );
+	var liftedPut = nodeWhen.lift( client2.storeValue.bind( client2 ) );
+	var liftedGet = nodeWhen.lift( client2.storeValue.bind( client2 ) );
+	var liftedDel = nodeWhen.lift( client2.deleteValue.bind( client2 ) );
 
 	var lifted = {
 		bucket: function( bucketName, options ) {
@@ -136,7 +139,7 @@ function lift( client, client2 ) { // jshint ignore:line
 			return when.promise( function( resolve, reject ) {
 				// This lib does not actually return a JS stream
 				// but essentially fires a notify callback when data is retrieved
-				var stream = client2.listBuckets( opts, function( err, result ) {
+				client2.listBuckets( opts, function( err, result ) {
 					if ( err ) {
 						return reject( err );
 					}
@@ -162,7 +165,38 @@ function lift( client, client2 ) { // jshint ignore:line
 
 			return liftedSetBucket( opts );
 		},
-		put: nodeWhen.lift( client.put ).bind( client ),
+		put: function() {
+			var argsLength = arguments.length;
+			var key;
+			var doc;
+			var indexes;
+			if ( argsLength >= 3 ) {
+				key = arguments[0];
+				doc = arguments[1];
+				indexes = arguments[2];
+			} else if ( argsLength === 2 ) {
+				var arg1 = arguments[0];
+				var arg2 = arguments[1];
+				if ( _.isString( arg1 ) || _.isNumber( arg1 ) ) { // key & doc
+					key = arg1;
+					doc = arg2;
+				} else if ( _.isObject( arg1 ) && _.has( arg1, "id" ) ) {
+					key = arg1.id;
+					doc = arg1;
+					indexes = arg2;
+				}
+			} else if ( argsLength === 1 ) {
+				doc = arguments[0];
+			}
+
+			if ( !key ) {
+				throw new Error( "PUT failed. No key specified." );
+			}
+
+			if ( !doc ) {
+				throw new Error( "PUT failed. No document found." )
+			}
+		},
 		get: nodeWhen.lift( client.get ).bind( client ),
 		del: nodeWhen.lift( client.del ).bind( client ),
 		mapred: nodeWhen.lift( client.mapred ).bind( client ),
