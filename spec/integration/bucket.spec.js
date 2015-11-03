@@ -379,7 +379,7 @@ describe( "Bucket Operations", function() {
 						}
 					} );
 				} )
-				.then( function( res ) {
+				.then( function() {
 					done();
 				} );
 		} );
@@ -401,7 +401,6 @@ describe( "Bucket Operations", function() {
 
 	describe( "working with bucket types", function() {
 		var riak;
-		var list;
 		var firstPropResult;
 		var secondPropResult;
 
@@ -416,7 +415,7 @@ describe( "Bucket Operations", function() {
 						lastWriteWins: true
 					} );
 				} )
-				.then( function( res ) {
+				.then( function() {
 					return riak.getBucketType( { type: "custom_bucket_type" } );
 				} )
 				.then( function( result ) {
