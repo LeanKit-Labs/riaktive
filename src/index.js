@@ -80,7 +80,7 @@ function lift( client, client2 ) { // jshint ignore:line
 	var liftedFetchBucketTypeProps = nodeWhen.lift( client2.fetchBucketTypeProps.bind( client2 ) );
 	var liftedStoreBucketTypeProps = nodeWhen.lift( client2.storeBucketTypeProps.bind( client2 ) );
 	var liftedPut = nodeWhen.lift( client2.storeValue.bind( client2 ) );
-	var liftedGet = nodeWhen.lift( client2.storeValue.bind( client2 ) );
+	var liftedGet = nodeWhen.lift( client2.fetchValue.bind( client2 ) );
 	var liftedDel = nodeWhen.lift( client2.deleteValue.bind( client2 ) );
 
 	var lifted = {
@@ -165,40 +165,26 @@ function lift( client, client2 ) { // jshint ignore:line
 
 			return liftedSetBucket( opts );
 		},
-		put: function() {
-			var argsLength = arguments.length;
-			var key;
-			var doc;
-			var indexes;
-			if ( argsLength >= 3 ) {
-				key = arguments[0];
-				doc = arguments[1];
-				indexes = arguments[2];
-			} else if ( argsLength === 2 ) {
-				var arg1 = arguments[0];
-				var arg2 = arguments[1];
-				if ( _.isString( arg1 ) || _.isNumber( arg1 ) ) { // key & doc
-					key = arg1;
-					doc = arg2;
-				} else if ( _.isObject( arg1 ) && _.has( arg1, "id" ) ) {
-					key = arg1.id;
-					doc = arg1;
-					indexes = arg2;
-				}
-			} else if ( argsLength === 1 ) {
-				doc = arguments[0];
+		put: function( options ) {
+			var doc = _.omit( options, [ "content" ] );
+			var obj = new Riak.Commands.KV.RiakObject();
+
+			var content = options.content;
+			obj.setContentType( content.contentType );
+			obj.setValue( content.value );
+
+			if ( content.indexes ) {
+				_.each( content.indexes, function( idx ) {
+					obj.addToIndex( idx.key, idx.value );
+				} );
 			}
 
-			if ( !key ) {
-				throw new Error( "PUT failed. No key specified." );
-			}
+			doc.value = obj;
 
-			if ( !doc ) {
-				throw new Error( "PUT failed. No document found." )
-			}
+			return liftedPut( doc );
 		},
-		get: nodeWhen.lift( client.get ).bind( client ),
-		del: nodeWhen.lift( client.del ).bind( client ),
+		get: liftedGet,
+		del: liftedDel,
 		mapred: nodeWhen.lift( client.mapred ).bind( client ),
 		getCounter: nodeWhen.lift( client.getCounter ).bind( client ),
 		updateCounter: nodeWhen.lift( client.updateCounter ).bind( client ),
