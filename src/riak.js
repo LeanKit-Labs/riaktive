@@ -70,10 +70,10 @@ function buildPut( bucketName, bucketType, key, obj, indexes, original ) {
 	var request = {
 		bucket: bucketName,
 		key: key,
-		return_body: true,
+		returnBody: true,
 		content: content( obj, indices ),
 		vclock: original.vclock || obj.vclock,
-		type: bucketType
+		bucketType: bucketType
 	};
 	if ( request.content.value.length > 64 ) {
 		log.debug( "Putting %d bytes to %s in \"%s\"",
@@ -91,7 +91,7 @@ function buildPut( bucketName, bucketType, key, obj, indexes, original ) {
 }
 
 function content( obj, indexes ) {
-	var tmp = { content_type: "application/json", value: JSON.stringify( _.omit( obj, "_indexes" ) ) };
+	var tmp = { contentType: "application/json", value: JSON.stringify( _.omit( obj, "_indexes" ) ) };
 	if ( indexes ) {
 		tmp.indexes = indexes;
 	}
@@ -127,7 +127,7 @@ function del( riak, bucketName, bucketType, key ) {
 	return riak.del( {
 		bucket: bucketName,
 		key: key,
-		type: bucketType
+		bucketType: bucketType
 	} );
 }
 
@@ -139,32 +139,31 @@ function formatContent( reply, content ) {
 }
 
 function get( riak, bucketName, bucketType, key, includeDeleted ) {
-	return riak.get( { bucket: bucketName, key: key, type: bucketType } )
-		.then( null, function( err ) {
-			return err;
-		} )
+	return riak.get( { bucket: bucketName, key: key, bucketType: bucketType } )
 		.then( function( reply ) {
-			if ( reply.content ) {
-				log.debug( "Get \"%s\" from \"%s\" returned %d documents with %d bytes",
-					key,
-					bucketName,
-					reply.content.length,
-					_.foldl( reply.content, function( x, y ) {
-						return x + y.value.length;
-					}, 0 )
-				);
-				var docs = scrubDocs( reply, includeDeleted );
-				if ( _.isEmpty( docs ) ) {
-					return undefined;
-				} else if ( docs.length === 1 ) {
-					return docs[ 0 ];
-				} else {
-					return docs;
-				}
-			} else {
+			if ( reply.isNotFound ) {
 				log.error( "Get \"%s\" from \"%s\" return an empty document!", key, bucketName );
 				throw new Errors.EmptyResult( bucketName, key );
 			}
+
+			log.debug( "Get \"%s\" from \"%s\" returned %d documents with %d bytes",
+				key,
+				bucketName,
+				reply.values.length,
+				_.foldl( reply.values, function( x, y ) {
+					return x + y.value.length;
+				}, 0 )
+			);
+			var docs = scrubDocs( reply, includeDeleted );
+			if ( _.isEmpty( docs ) ) {
+				return undefined;
+			} else if ( docs.length === 1 ) {
+				return docs[ 0 ];
+			} else {
+				return docs;
+			}
+		}, function( err ) {
+			return err;
 		} );
 }
 
@@ -298,19 +297,19 @@ function mutate( riak, bucketName, bucketType, key, mutateFn ) {
 function parseIndexes( doc, obj ) {
 	var collection = {};
 	if ( obj.indexes && !doc._indexes ) {
-		_.each( obj.indexes, function( index ) {
-			var key = index.key.replace( "_int", "" ).replace( "_bin", "" );
-			if ( /_int$/.test( index.key ) ) {
+		_.each( obj.indexes, function( rawVal, rawKey ) {
+			var key = rawKey.replace( "_int", "" ).replace( "_bin", "" );
+			if ( /_int$/.test( rawKey ) ) {
 				if ( collection[ key ] ) {
-					collection[ key ] = _.flatten( [ collection[ key ], parseInt( index.value ) ] );
+					collection[ key ] = _.flatten( [ collection[ key ], parseInt( rawVal ) ] );
 				} else {
-					collection[ key ] = parseInt( index.value );
+					collection[ key ] = parseInt( rawVal );
 				}
 			} else {
 				if ( collection[ key ] ) {
-					collection[ key ] = _.flatten( [ collection[ key ], index.value ] );
+					collection[ key ] = _.flatten( [ collection[ key ], rawVal ] );
 				} else {
-					collection[ key ] = index.value;
+					collection[ key ] = rawVal;
 				}
 			}
 		} );
@@ -397,7 +396,7 @@ function readBucket( riak, bucketName, bucketType ) {
 }
 
 function scrubDocs( reply, inclusive ) {
-	var filtered = _.filter( reply.content, includeDeleted( inclusive ) );
+	var filtered = _.filter( reply.values, includeDeleted( inclusive ) );
 	return _.map( filtered, formatContent.bind( undefined, reply ) );
 }
 

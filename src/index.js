@@ -79,6 +79,9 @@ function lift( client, client2 ) { // jshint ignore:line
 	var liftedSetBucket = safeLift( client2.storeBucketProps.bind( client2 ) );
 	var liftedFetchBucketTypeProps = nodeWhen.lift( client2.fetchBucketTypeProps.bind( client2 ) );
 	var liftedStoreBucketTypeProps = nodeWhen.lift( client2.storeBucketTypeProps.bind( client2 ) );
+	var liftedPut = nodeWhen.lift( client2.storeValue.bind( client2 ) );
+	var liftedGet = nodeWhen.lift( client2.fetchValue.bind( client2 ) );
+	var liftedDel = nodeWhen.lift( client2.deleteValue.bind( client2 ) );
 
 	var lifted = {
 		bucket: function( bucketName, options ) {
@@ -136,7 +139,7 @@ function lift( client, client2 ) { // jshint ignore:line
 			return when.promise( function( resolve, reject ) {
 				// This lib does not actually return a JS stream
 				// but essentially fires a notify callback when data is retrieved
-				var stream = client2.listBuckets( opts, function( err, result ) {
+				client2.listBuckets( opts, function( err, result ) {
 					if ( err ) {
 						return reject( err );
 					}
@@ -162,9 +165,26 @@ function lift( client, client2 ) { // jshint ignore:line
 
 			return liftedSetBucket( opts );
 		},
-		put: nodeWhen.lift( client.put ).bind( client ),
-		get: nodeWhen.lift( client.get ).bind( client ),
-		del: nodeWhen.lift( client.del ).bind( client ),
+		put: function( options ) {
+			var doc = _.omit( options, [ "content" ] );
+			var obj = new Riak.Commands.KV.RiakObject();
+
+			var content = options.content;
+			obj.setContentType( content.contentType );
+			obj.setValue( content.value );
+
+			if ( content.indexes ) {
+				_.each( content.indexes, function( idx ) {
+					obj.addToIndex( idx.key, idx.value );
+				} );
+			}
+
+			doc.value = obj;
+
+			return liftedPut( doc );
+		},
+		get: liftedGet,
+		del: liftedDel,
 		mapred: nodeWhen.lift( client.mapred ).bind( client ),
 		getCounter: nodeWhen.lift( client.getCounter ).bind( client ),
 		updateCounter: nodeWhen.lift( client.updateCounter ).bind( client ),
